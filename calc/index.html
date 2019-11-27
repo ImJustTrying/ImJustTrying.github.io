@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Scientific Calculator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../shared/mathquill/mathquill.css">
+    <link rel="stylesheet" href="calc.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script src="../shared/mathquill/mathquill.js"></script>
+    <script async src="../shared/mathjax/tex-chtml.js"></script>
+    <script defer src="../shared/fontawesome/js/all.min.js"></script>
+    <script src="calc.js"></script>
+  </head>
+
+  <body onload="main()">
+    <div id="loading">
+      <div class="loadingio-spinner"><div class="ldio">
+        <div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div><div></div>
+      </div></div>
+    </div>
+    <div id="container">
+    <h1>A Scientific Calculator</h1>
+    <table>
+      <thead>
+        <tr>
+          <th colspan="8">
+            <div class="grey_box output">
+              <p id="output">= </p>
+              <div id="ajax_loading" class="loadingio-spinner-rolling"><div class="ldio-rolling">
+                <div></div>
+              </div></div>
+            </div>
+          </th>
+        </tr>
+        <tr>
+          <th colspan="8">
+              <span id="text_input" class="grey_box"></span>
+          </th>
+        </tr>
+      </thead>
+
+      <tbody id="table_body">
+        <tr>
+          <td><button onclick="btn('^2', false)">\(x^2\)</button></td>
+          <td><button onclick="btn('sin(', true)">sin</button></td>
+          <td><button onclick="btn('cos(', true)">cos</button></td>
+          <td><button onclick="btn('tan(', true)">tan</button></td>
+          <td><button onclick="btn('CE', false)">CE</button></td>
+          <td><button onclick="btn('C', false)">C</button></td>
+          <td><button onclick="btn('back', false)"><i class="fas fa-backspace"></i></button></td>
+          <td><button onclick="btn('/', true)">\(\div\)</button></td>
+        </tr>
+
+        <tr>
+          <td><button onclick="btn('\\sqrt ', true)">\(\sqrt{x}\)</button></td>
+          <td><button onclick="btn('sin^{-1}', false)">sin\(^{-1}\)</button></td>
+          <td><button onclick="btn('cos^{-1}', false)">cos\(^{-1}\)</button></td>
+          <td><button onclick="btn('tan^{-1}', false)">tan\(^{-1}\)</button></td>
+          <td><button onclick="btn('7', false)">7</button></td>
+          <td><button onclick="btn('8', false)">8</button></td>
+          <td><button onclick="btn('9', false)">9</button></td>
+          <td><button onclick="btn('\\cdot', false)">\(\times\)</button></td>
+        </tr>
+
+        <tr>
+          <td><button onclick="btn('^', true)">\(x^y\)</button></td>
+          <td><button onclick="btn('log_{10}', true)">log\(_{10}\)</button></td>
+          <td><button onclick="btn('log_e', true)">log\(_e\)</button></td>
+          <td><button onclick="btn('log_2', true)">log\(_2\)</button></td>
+          <td><button onclick="btn('6', false)">6</button></td>
+          <td><button onclick="btn('5', false)">5</button></td>
+          <td><button onclick="btn('4', false)">4</button></td>
+          <td><button onclick="btn('-', false)">-</button></td>
+        </tr>
+
+        <tr>
+          <td><button onclick="btn('\\sqrt[y]{}',false)">\(\sqrt[y]{x}\)</button></td>
+          <td><button onclick="btn('e', false)">\(e\)</button></td>
+          <td><button onclick="btn('\\pi', false)">\(\pi\)</button></td>
+          <td><button onclick="btn('\\mod ', true)">mod</button></td>
+          <td><button onclick="btn('3', false)">3</button></td>
+          <td><button onclick="btn('2', false)">2</button></td>
+          <td><button onclick="btn('1', false)">1</button></td>
+          <td><button onclick="btn('+', false)">+</button></td>
+        </tr>
+
+        <tr>
+          <td><button id="deg_rad" onclick="btn('deg_rad', false)">Deg</button></td>
+          <td><button onclick="btn('ms', false)">MS</button></td>
+          <td><button onclick="btn('mr', false)">MR</button></td>
+          <td><button onclick="btn('mc', false)">MC</button></td>
+          <td><button onclick="btn('(', false)">(</button></td>
+          <td><button onclick="btn('0', false)">0</button></td>
+          <td><button onclick="btn(')', false)">)</button></td>
+          <td><button onclick="btn('=', false)">=</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <br><br>
+
+    <footer>
+      Made with:
+      <ul>
+        <li>
+          <a href="https://mathjax.org">Mathjax</a>: For rendering static mathematics in the browser
+        </li><li>
+          <a href="http://mathquill.com">Mathquill</a>: For rendering mathematics dynamically in the browser
+        </li><li>
+          <a href="https://fontawesome.com">Fontawesome</a>: For icons
+        </li><li>
+          <a href="https://loading.io">Loading.io</a>: For the loading spinner
+        </li>
+      </ul>
+      <a href="https://github.com/ImJustTrying/Calculator">Source code</a>
+    </footer>
+    </div> <!-- container -->
+  </body>
+</html>

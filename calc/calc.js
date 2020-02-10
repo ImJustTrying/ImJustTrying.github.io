@@ -10,16 +10,17 @@
 // math_field for mathquill, input_field for html element
 var mq, math_field, input_field, output_field;
 var deg_rad = true; // true for degrees, false for radians
+var last_calculated, memory = NaN;
 
 
 // This is for the loading spinner
 document.onreadystatechange = () => {
   let state = document.readyState;
   if (state === "interactive") {
-    document.getElementById("container").style.visibility = "hidden";
+    document.querySelector("#container").style.visibility = "hidden";
   } else if (state === "complete") {
-    document.getElementById("loading").style.visibility = "hidden";
-    document.getElementById("container").style.visibility = "visible";
+    document.querySelector("#loading").style.visibility = "hidden";
+    document.querySelector("#container").style.visibility = "visible";
   }
 }
 
@@ -44,7 +45,7 @@ function btn(str, simulate_typing) {
       let parsed_input = parse_latex(l, 0, l.length);
       console.log("raw latex: " + l);
       console.log("parsed: " + parsed_input);
-      document.getElementById("ajax_loading").style.visibility = "visible";
+      document.querySelector("#ajax_loading").style.visibility = "visible";
       query_server(parsed_input);
       break;
     case "deg_rad":
@@ -80,15 +81,20 @@ function btn(str, simulate_typing) {
       math_field.select();
       math_field.keystroke("Backspace");
       break;
+
     case "ms":
-    case "mr":
-    case "mc": break;
+      memory = last_calculated; 
+      if (memory != NaN) { output_field.innerHTML = "Value \"" + memory + "\" stored!"; }
+      break;
+    case "mr": if (memory != NaN) { math_field.write(memory); } break;
+    case "mc": memory = NaN; break;
     default:
       if (simulate_typing){ math_field.typedText(str); }
       else { math_field.write(str); }
   }
   math_field.focus();
 }
+
 
 function is_numeric(str) {
   return !isNaN(parseFloat(str)) && isFinite(str);
@@ -110,7 +116,7 @@ function read_real_number(str, start_index) {
 // returns index of corresponding bracket to the one at the first index -- note this first bracket
 // must be an opening bracket. e.g. find_corresponding_bracket("{{}{}}", 0) = 5
 function find_corresponding_bracket(str, first_bracket_index) {
-  if (first_bracket_index < 0 || first_bracket_index >= str.length) { return undefined; }
+  if (first_bracket_index < 0 || first_bracket_index >= str.length) { return -1; }
   let character = "";
   let balance = 0;
   switch (str[first_bracket_index]) {
@@ -118,7 +124,7 @@ function find_corresponding_bracket(str, first_bracket_index) {
     case "(": character = ")"; break;
     case "[": character = "]"; break;
     case "<": character = ">"; break;
-    default: return undefined;
+    default: return -1;
   }
 
   for (let i = first_bracket_index + 1; i < str.length; i++) {
@@ -128,6 +134,7 @@ function find_corresponding_bracket(str, first_bracket_index) {
       else { return i; }
     } 
   }
+  return -1;
 }
 
 
@@ -149,6 +156,7 @@ async function query_server(exp) {
     console.log(json);
     output_field.innerHTML = "= " + json.value;
     document.getElementById("ajax_loading").style.visibility = "hidden";
+    last_calculated = json.value;
   }).catch(function(error) {
     output_field.innerHTML = "Syntax error!";
     console.log(error.toString());
@@ -214,8 +222,34 @@ function parse_latex(latex, start_index, end_index) {
         i = j + 1;
       }
 
+      // Logarithms
+      else if (latex[i+1] === "l" && latex[i+2] === "o") {
+        i += 5;
+        let j = 0;
+        let base = "";
+        let val = "";
+
+        if (latex[i] != "{") { base = latex[i]; i += 1}
+        else {
+          j = find_corresponding_bracket(latex, i);
+          base = parse_latex(latex, i + 1, j);
+          if (base == undefined) { console.log("log b"); return undefined; }
+          i = j + 1;
+        }
+
+        if (latex[i] == "\\" && latex[i+1] == "l" && latex[i+2] == "e") {
+          i += 5;
+          j = find_corresponding_bracket(latex, i);
+          if (val == undefined) { console.log("log v"); return undefined; }
+          // Minus 6 since we need to account for the right paren being "\right)" instead of ")"
+          val = parse_latex(latex, i + 1, j - 6);
+          i = j + 1;
+        } else { return undefined; }
+        parsed += "log(" + base + "," + val + ")";
+      } 
+
       // For whatever reason, mathquill uses "\left(" and "\right)" instead of just "(" and ")"
-      else if (latex[i+1] === "l") {
+      else if (latex[i+1] === "l" && latex[i+2] === "e") {
         console.log("left paren");
         parsed += "("; i += 6; paren_balance += 1;
       } else if (latex[i+1] === "r") {

@@ -106,5 +106,51 @@ test("tokenize mixed numbers and operators", function() {
   assert($tokens[1]->token === "+");
   assert($tokens[2]->type == NUMBER);
   assert($tokens[2]->token === "2");
+  
+  $tokens = tokenize("1.23 + -4.5");
+  assert(count($tokens) === 3);
+  assert($tokens[0]->type == NUMBER);
+  assert($tokens[0]->token === "1.23");
+  assert($tokens[1]->type == OPERATOR);
+  assert($tokens[1]->token === "+");
+  assert($tokens[2]->type == NUMBER);
+  assert($tokens[2]->token === "-4.5");
+});
+
+
+// infix to postfix tests
+test("postfix empty string", function() {
+  assert(count(infix_to_postfix(array())) === 0);
+});
+
+test("postfix numbers", function() {
+  $tokens = array(new Token("1.23", NUMBER));
+  $postfix = infix_to_postfix($tokens);
+  assert(count($postfix) === 1);
+  assert($postfix[0]->type === NUMBER);
+  assert($postfix[0]->token === "1.23");
+});
+
+test("postfix simple arithmetic", function() {
+  $tokens = tokenize("1.23 + -4.5");
+  $postfix = infix_to_postfix($tokens);
+
+  assert(count($postfix) === 3);
+  assert($postfix[0]->type === NUMBER);
+  assert($postfix[1]->type === NUMBER);
+  assert($postfix[2]->type === OPERATOR);
+  assert($postfix[0]->token === "1.23");
+  assert($postfix[1]->token === "-4.5");
+  assert($postfix[2]->token === "+");
+});
+
+test("postfix one-arity operators", function() {
+  $tokens = tokenize("sin(1.23) + cos(-4.5)");
+  $postfix = infix_to_postfix($tokens);
+
+  assert(count($postfix) === 5);
+  for ($i = 0; $i < count($postfix); $i += 1) {
+    echo $postfix[$i]->token . "\n";
+  }
 });
 ?>

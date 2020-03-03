@@ -24,7 +24,7 @@
 */
 
 declare(strict_types=1);
-header("Content-Type: application/json; charset=UTF-8");
+//header("Content-Type: application/json; charset=UTF-8");
 define("NONE", 0);
 define("NUMBER", 1);
 define("OPERATOR", 2);
@@ -77,6 +77,7 @@ class ExpTree {
 function read_number(string $s, int $start): Token {
   $dot_found = false;
   $nonzero = false;
+  $i = 0;
   if ($start >= strlen($s) || strlen($s) == 0) { return new Token("None", NONE); }
 
   // loop through, reading each character and checking if they are numeric, or if it is a "."
@@ -84,15 +85,14 @@ function read_number(string $s, int $start): Token {
   for ($i = $start; $i < strlen($s); $i += 1) {
     // Only if we find a character that is numeric and not zero, we can say the number is nonzero
     if (!$nonzero && is_numeric($s[$i]) && $s[$i] != "0") { $nonzero = true; }
-    if ($s[$i] == "-" && $i != $start) { return new Token("None", NONE); }
-    if ($s[$i] == ".") {
+    if ($s[$i] === "-" && $i !== $start) { return new Token("None", NONE); }
+    if ($s[$i] === ".") {
       if ($dot_found) { return new Token("None", NONE); }
       else { $dot_found = true; continue; }
     }
 
     // If we find an invalid character, we just stop parsing there and return whatever we found
     if (!is_numeric($s[$i]) && $s[$i] != "." && $s[$i] != "-") {
-      if ($i == $start) { return new Token("None", NONE); }
       return new Token(substr($s, $start, ($i - $start)), NUMBER);
     }
   }
@@ -102,8 +102,8 @@ function read_number(string $s, int $start): Token {
 
   $token = null;
   // If the number is just zero, return a single character string of zero
-  if (!$nonzero) { $t = new Token("0", NUMBER); }
-  else { $t = new Token(substr($s, $start, ($i - $start)), NUMBER); }
+  if (!$nonzero) { $token = new Token("0", NUMBER); }
+  else { $token = new Token(substr($s, $start, ($i - $start)), NUMBER); }
   $token->precedence = 0; $token->arity = 0;
   return $token;
 }
@@ -114,7 +114,7 @@ function tokenize (string $exp): array {
     if ($exp[$i] == " ") { continue; }
 
     // If it is a numeric value, parse with read_number and continue
-    if (is_numeric($exp[$i]) || $exp[$i] == "." || $exp[$i] == "-") {
+    if (is_numeric($exp[$i]) || $exp[$i] === "." || $exp[$i] === "-") {
       $numeric_token = read_number($exp, $i);
       array_push($tokens, $numeric_token);
       $i += strlen($numeric_token->token);
@@ -141,7 +141,9 @@ function tokenize (string $exp): array {
         case "l": // logarithm
           $t->token = substr($exp, $i, 3); $i += 2; $t->precedence = 2; $t->arity = 2; break;
         case "s": // sine
-        case "c": // cosine case "t": // tangent $t->token = substr($exp, $i, 3); $i += 2; $t->precedence = 2; $t->arity = 1; break;
+        case "c": // cosine
+        case "t": // tangent
+          $t->token = substr($exp, $i, 3); $i += 2; $t->precedence = 2; $t->arity = 1; break;
         case "a": // inverse trigonometric functions
           $t->token = substr($exp, $i, 6); $i += 5; $t->precedence = 2; $t->arity = 1; break;
         case ")":
@@ -157,7 +159,7 @@ function tokenize (string $exp): array {
 
 // Check for function operators (e.g. sin, cos, root, log, tan)
 function is_function($token) {
-  return $token->type === OPERATOR && strlen($token->token) > 1;
+  return $token !== null && $token->type === OPERATOR && strlen($token->token) > 1;
 }
 
 // An implementation of the shunting-yard algorithm
@@ -168,9 +170,9 @@ function infix_to_postfix(array $tokens) {
   for ($i = 0; $i < count($tokens); $i += 1) {
     $token = $tokens[$i];
     if ($token->type === NONE) { break; }
-    if ($token->type === NUMBER) { array_push($postfix, $token); continue; }
-    if ($token->type === OPERATOR) {
-      if ($token->token === "(" || is_function($token)) { $stack->push($token); continue; }
+    if ($token->type === NUMBER) { array_push($postfix, $token); }
+    else if ($token->type === OPERATOR) {
+      if ($token->token === "(" || is_function($token)) { $stack->push($token); }
 
       else {
         $top = $stack->peek();
@@ -180,13 +182,34 @@ function infix_to_postfix(array $tokens) {
               || is_function($top)
               && $top->token !== "(") {
           array_push($postfix, $stack->pop());
+          $top = $stack->peek();
         }
         $stack->push($token);
-      }
 
-      
+        if ($token->token === ")") {
+          $top = $stack->peek();
+          while($stack->size() >= 0 && $top->token !== "(") {
+            array_push($postfix, $stack->pop());
+            $top = $stack->peek();
+          }
+          if ($stack->size() === 0) {
+            throw new Exception("Mismatched parenthesis at token " . $i);
+          }
+          if ($top->token === "(") { $stack->pop(); }
+        }
+      }
     }
   }
+
+  // If there are operators left, pop them all and 
+  while($stack->size() > 0) {
+    $top = $stack->pop();
+    if ($top->token === "(" || $top->token === ")") {
+      throw new Exception("Mismatched parenthesis at token " . $i);
+    }
+    array_push($postfix, $top);
+  }
+  return $postfix;
 }
 
 /*

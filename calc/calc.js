@@ -7,10 +7,28 @@
   stuff. 
 */
 
+
+// Types of tokens
+const NUMERICAL = 0;
+const OPERATOR = 1;
+const PARENTHESIS = 2;
+const SEPARATOR = 3;
+
 // math_field for mathquill, input_field for html element
-var mq, math_field, input_field, output_field;
-var deg_rad = true; // true for degrees, false for radians
-var last_calculated, memory = NaN;
+let mq, math_field, input_field, output_field;
+let deg_rad = true; // true for degrees, false for radians
+let last_calculated, memory = NaN;
+
+
+
+class Token {
+  constructor(string, type, arity, precedence) {
+    this.string = string;
+    this.type = type;
+    this.arity = arity;
+    this.precedence = precedence;
+  }
+}
 
 
 // This is for the loading spinner
@@ -24,6 +42,8 @@ document.onreadystatechange = () => {
   }
 }
 
+
+
 function main() {
   input_field = document.querySelector("#text_input");
   output_field = document.querySelector("#output");
@@ -31,11 +51,11 @@ function main() {
   math_field = mq.MathField(input_field);
 }
 
+
 // Called when one of the buttons is pressed
 // str is the string to write to the input
 // simulate_typing is a boolean saying whether the input should be written directly (false) or if
 // it should simulate a person typing the string (true)
-
 function btn(str, simulate_typing) {
   switch (str) {
     case "=":
@@ -43,11 +63,15 @@ function btn(str, simulate_typing) {
       // evlaulation
       let l = math_field.latex();
       let parsed_input = parse_latex(l, 0, l.length);
-      console.log("raw latex: " + l);
-      console.log("parsed: " + parsed_input);
-      document.querySelector("#ajax_loading").style.visibility = "visible";
-      query_server(parsed_input);
+      console.debug("raw latex: " + l);
+      console.debug("parsed: " + parsed_input);
+      if (parsed_input === undefined) { break; }
+      let tokens = tokenize(parsed_input);
+      console.debug("tokenized:");
+      tokens.map(console.debug);
+      let postfix = infix_to_postfix(tokens);
       break;
+
     case "deg_rad":
       deg_rad = !deg_rad;
       document.querySelector("#deg_rad").innerHTML = (deg_rad) ? "Deg" : "Rad";
@@ -100,6 +124,7 @@ function is_numeric(str) {
   return !isNaN(parseFloat(str)) && isFinite(str);
 }
 
+
 function read_real_number(str, start_index) {
   let num = "";
   let i = start_index;
@@ -112,6 +137,7 @@ function read_real_number(str, start_index) {
   }
   return num;
 }
+
 
 // returns index of corresponding bracket to the one at the first index -- note this first bracket
 // must be an opening bracket. e.g. find_corresponding_bracket("{{}{}}", 0) = 5
@@ -139,32 +165,6 @@ function find_corresponding_bracket(str, first_bracket_index) {
 
 
 
-async function query_server(exp) {
-  const user_params = { query: exp, deg_rad: deg_rad, debug: true };
-  const http_params = {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(user_params)
-  }
-
-  fetch("calculate.php", http_params)
-  .then(response => response.json())
-  .then(function(json) {
-    console.log(json);
-    output_field.innerHTML = "= " + json.value;
-    document.getElementById("ajax_loading").style.visibility = "hidden";
-    last_calculated = json.value;
-  }).catch(function(error) {
-    output_field.innerHTML = "Syntax error!";
-    console.log(error.toString());
-    document.getElementById("ajax_loading").style.visibility = "hidden";
-  });
-}
-
-
 /*
  * This procedure will take in a latex string and build a new string that is a traditional infix
  * expression. For instance given "sin^{-1}\left(180\right)" it will return "arcsin(180)".
@@ -174,14 +174,19 @@ function parse_latex(latex, start_index, end_index) {
   let parsed = "";
   let i = start_index;
   let paren_balance = 0;
+
   while (i < latex.length && i < end_index) {
-    console.log(parsed);
-    if (latex[i] === " ") { console.log("space"); i += 1; continue; }
+    console.debug(parsed);
+    if (latex[i] === " ") { console.debug("space"); i += 1; continue; }
     if (latex[i] === "-" || latex[i] === "." || is_numeric(latex[i])) {
-      console.log("num");
+      console.debug("num");
       let n = read_real_number(latex, i);
-      if (n === "") { console.log("reading number"); return undefined; }
-      parsed += n;
+      if (n === "") { console.debug("reading number"); return undefined; }
+      if (n[0] === "-" && is_numeric(parsed[parsed.length - 1])) {
+        parsed += "+(" + n + ")";
+      } else {
+        parsed += n;
+      }
       i += n.length;
     } else if (latex[i] === "e") { parsed += "e"; i += 1; }
     else if (latex[i] === "+") { parsed += "+"; i += 1; }
@@ -202,22 +207,22 @@ function parse_latex(latex, start_index, end_index) {
     else if (latex[i] === "\\") {
       if (latex[i+1] === "p" ) { parsed += "pi"; i += 3; } // pi
       // multiplication = "\cdot"
-      else if (latex[i+1] === "c") { console.log("mult"); parsed += "*"; i += 5; }
-      else if (latex[i+1] === "m") { console.log("mod"); parsed += "mod"; i += 4; }
+      else if (latex[i+1] === "c") { console.debug("mult"); parsed += "*"; i += 5; }
+      else if (latex[i+1] === "m") { console.debug("mod"); parsed += "mod"; i += 4; }
       else if (latex[i+1] === "s" && latex[i+2] === "q") { // root = "\sqrt"
-        console.log("square root");
+        console.debug("square root");
         i += 5;
         let n = "2";
         if (latex[i] === "[") { // If not 2nd root, read the number to get n
           let j = find_corresponding_bracket(latex, i);
           n = parse_latex(latex, i + 1, j);
-          console.log("read n: " + n);
-          if (n === undefined || n.length === 0) { console.log("root n"); return undefined; }
+          console.debug("read n: " + n);
+          if (n === undefined || n.length === 0) { console.debug("root n"); return undefined; }
           i = j + 1;
         }
         let j = find_corresponding_bracket(latex, i);
         let r = parse_latex(latex, i + 1, j);
-        if (r === undefined || r.length === 0) { console.log("root r"); return undefined; }
+        if (r === undefined || r.length === 0) { console.debug("root r"); return undefined; }
         parsed += "root(" + n + "," + r + ")";
         i = j + 1;
       }
@@ -233,14 +238,14 @@ function parse_latex(latex, start_index, end_index) {
         else {
           j = find_corresponding_bracket(latex, i);
           base = parse_latex(latex, i + 1, j);
-          if (base == undefined) { console.log("log b"); return undefined; }
+          if (base == undefined) { console.debug("log b"); return undefined; }
           i = j + 1;
         }
 
         if (latex[i] == "\\" && latex[i+1] == "l" && latex[i+2] == "e") {
           i += 5;
           j = find_corresponding_bracket(latex, i);
-          if (val == undefined) { console.log("log v"); return undefined; }
+          if (val == undefined) { console.debug("log v"); return undefined; }
           // Minus 6 since we need to account for the right paren being "\right)" instead of ")"
           val = parse_latex(latex, i + 1, j - 6);
           i = j + 1;
@@ -250,26 +255,26 @@ function parse_latex(latex, start_index, end_index) {
 
       // For whatever reason, mathquill uses "\left(" and "\right)" instead of just "(" and ")"
       else if (latex[i+1] === "l" && latex[i+2] === "e") {
-        console.log("left paren");
+        console.debug("left paren");
         parsed += "("; i += 6; paren_balance += 1;
       } else if (latex[i+1] === "r") {
-        console.log("right paren");
-        if (paren_balance === 0) { console.log("right parens"); return undefined; }
+        console.debug("right paren");
+        if (paren_balance === 0) { console.debug("right parens"); return undefined; }
         parsed += ")"; i += 7; paren_balance -= 1;
       }
 
       // Fractions = "\frac{1}{2}"
       else if (latex[i+1] === "f") {
-        console.log("fraction");
+        console.debug("fraction");
         i += 5;
         let j = find_corresponding_bracket(latex, i);
         let n = parse_latex(latex, i + 1, j);
-        if (n === undefined || n.length === 0) { console.log("frac n"); return undefined; }
+        if (n === undefined || n.length === 0) { console.debug("frac n"); return undefined; }
         i = j + 1;
 
         j = find_corresponding_bracket(latex, i);
         let d = parse_latex(latex, i + 1, j);
-        if (d === undefined || d.length === 0) { console.log("frac d"); return undefined; }
+        if (d === undefined || d.length === 0) { console.debug("frac d"); return undefined; }
         i = j + 1;
         parsed += "(" + n + ")/(" + d + ")";
       }
@@ -277,7 +282,7 @@ function parse_latex(latex, start_index, end_index) {
       // Trig functions -- note that we don't read the value in the parentheses, we let our method
       // do that for us (since we already have code to do this in the procedure)
       else if (latex[i+1] === "s" || latex[i+1] === "c" || latex[i+1] === "t") {
-        console.log("trig");
+        console.debug("trig");
         if (latex[i+4] === "^") { // need to write inverse trig function
           parsed += "arc" + latex.substring(i+1, i+4);
           i += 9;
@@ -288,7 +293,7 @@ function parse_latex(latex, start_index, end_index) {
       }
     }
 
-    else { console.log("default"); return undefined; }
+    else { console.debug("default"); return undefined; }
   }
 
   if (paren_balance === 0) {
@@ -299,5 +304,89 @@ function parse_latex(latex, start_index, end_index) {
     parsed = parsed.replace(/pi/g, pi);
     return parsed;
   }
-  else { console.log("unbalanced parens"); return undefined; }
+  else { console.debug("unbalanced parens"); return undefined; }
+}
+
+
+// Takes an infix string and returns a token stream (i.e. list of tokens) of operators and values.
+// We assume all of the input is valid.
+function tokenize(parsed_latex) {
+  let i = 0;
+  let stream = [];
+
+  while (i < parsed_latex.length) {
+    if (parsed_latex[i] === "." || is_numeric(parsed_latex[i])) {
+      let r = read_real_number(parsed_latex, i);
+      stream.push(new Token(r, NUMERICAL, 0, 0));
+      i += r.length;
+    } else {
+      let arity = 0;
+      let str = "";
+      let type = OPERATOR;
+      let prec = 0;
+
+      switch (parsed_latex[i]) {
+        case "+":
+          arity = 2;
+          str = parsed_latex[i];
+          break;
+        case "*":
+        case "/":
+          arity = 2;
+          str = parsed_latex[i];
+          precedence = 1;
+          break;
+        case "^":
+          arity = 2;
+          str = parsed_latex[i];
+          precedence = 2;
+          break;
+        case "-":
+          arity = 1;
+          str = parsed_latex[i];
+          precedence = 3;
+          break;
+        case "r": // root
+          arity = 2;
+          str = parsed_latex.substring(i, i+4);
+          precedence = 3;
+          break;
+        case "l": // log
+          arity = 2;
+          str = parsed_latex.substring(i, i+3);
+          precedence = 3;
+          break;
+        case "a": // inverse trig
+          arity = 1;
+          str = parsed_latex.substring(i, i+6);
+          precedence = 3;
+          break;
+        case "s": // trig
+        case "c":
+        case "t":
+          arity = 1;
+          str = parsed_latex.substring(i, i+3);
+          precedence = 3;
+          break;
+        case "(":
+        case ")":
+          str = parsed_latex[i];
+          type = PARENTHESIS;
+          break;
+        case ",":
+          arity = 2;
+          str = parsed_latex[i];
+          type = SEPARATOR;
+          break;
+      }
+      stream.push(new Token(str, type, arity));
+      i += str.length;
+    }
+  }
+  return stream;
+}
+
+
+function infix_to_postfix(infix) {
+
 }

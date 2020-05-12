@@ -9,15 +9,17 @@
 
 
 // Types of tokens
+const INVALID = -1;
 const NUMERICAL = 0;
 const OPERATOR = 1;
-const PARENTHESIS = 2;
-const SEPARATOR = 3;
+const FUNCTION = 2;
+const PARENTHESIS = 3;
+const SEPARATOR = 4;
 
 // math_field for mathquill, input_field for html element
-let mq, math_field, input_field, output_field;
-let deg_rad = true; // true for degrees, false for radians
-let last_calculated, memory = NaN;
+let mq_g, math_field_g, input_field_g, output_field_g;
+let deg_rad_g = true; // true for degrees, false for radians
+let last_calculated_g, memory_g = NaN, rep_type_g;
 
 
 
@@ -30,6 +32,28 @@ class Token {
   }
 }
 
+
+class AST {
+  // token is of type Token, childen of type [Token]
+  constructor(token, children) {
+    this.token = token;
+    this.children = children;
+  }
+}
+
+
+class Stack {
+  constructor() {
+    // We want these to be private so we use closures to hide them
+    let data = [];
+
+    this.is_empty = () => data.length === 0;
+    this.peek = () => data[data.length - 1];
+    this.push = (e) => data.push(e);
+    this.pop = () => data.pop();
+  }
+}
+    
 
 // This is for the loading spinner
 document.onreadystatechange = () => {
@@ -45,10 +69,38 @@ document.onreadystatechange = () => {
 
 
 function main() {
-  input_field = document.querySelector("#text_input");
-  output_field = document.querySelector("#output");
-  mq = MathQuill.getInterface(2);
-  math_field = mq.MathField(input_field);
+  input_field_g = document.querySelector("#text_input");
+  output_field_g = document.querySelector("#output");
+  mq_g = MathQuill.getInterface(2);
+  math_field_g = mq_g.MathField(input_field_g);
+  const rep_type_selector = document.querySelector("#rep_type");
+
+  input_field_g.addEventListener("keydown", function() {
+    const key_pressed = event.which || event.keyCode // cross-browser nonsense
+    if (key_pressed === 13) { // if they press enter, evaluate
+      btn("=", false);
+    }
+  });
+
+  rep_type_selector.addEventListener("change", function() {
+    rep_type_g = rep_type_selector.value;
+    if (last_calculated_g !== undefined) {
+      output_field_g.innerHTML = get_string_representation(last_calculated_g);
+    }
+  });
+
+  rep_type_g = rep_type_selector.value;
+}
+
+
+function get_string_representation(value) {
+  switch(rep_type_g) {
+    case "reg": return value.toString();
+    case "exp": return value.toExponential();
+    case "base2": return value.toString(2);
+    case "base8": return value.toString(8);
+    case "base16": return value.toString(16);
+  }
 }
 
 
@@ -61,33 +113,42 @@ function btn(str, simulate_typing) {
     case "=":
       // We need to parse our latex string into an infix string, and send it to the server for
       // evlaulation
-      let l = math_field.latex();
-      let parsed_input = parse_latex(l, 0, l.length);
+      const l = math_field_g.latex();
+      const parsed_input = parse_latex(l, 0, l.length);
       console.debug("raw latex: " + l);
       console.debug("parsed: " + parsed_input);
-      if (parsed_input === undefined) { break; }
-      let tokens = tokenize(parsed_input);
-      console.debug("tokenized:");
-      tokens.map(console.debug);
-      let postfix = infix_to_postfix(tokens);
+      if (parsed_input === undefined) {
+        output_field_g.innerHTML = "Syntax error";
+        break;
+      }
+
+      const tokens = tokenize(parsed_input);
+      const ast = infix_to_ast(tokens);
+      console.debug("tokenized:", tokens);
+      console.debug("AST: ", ast);
+
+      last_calculated_g = evaluate_ast(ast);
+      // Truncate to zero when the floating point error is small enough
+      if (last_calculated_g < Number.EPSILON) { value = 0; }
+      output_field_g.innerHTML = "= " + get_string_representation(last_calculated_g);
       break;
 
     case "deg_rad":
-      deg_rad = !deg_rad;
-      document.querySelector("#deg_rad").innerHTML = (deg_rad) ? "Deg" : "Rad";
+      deg_rad_g = !deg_rad_g;
+      document.querySelector("#deg_rad").innerHTML = (deg_rad_g) ? "Deg" : "Rad";
       break;
     case "back":
-      math_field.keystroke("Backspace");
+      math_field_g.keystroke("Backspace");
       break;
     case "\\sqrt ":
-      math_field.typedText(str);
-      math_field.keystroke("Backspace");
+      math_field_g.typedText(str);
+      math_field_g.keystroke("Backspace");
       break;
     case "\\sqrt[y]{}":
-      math_field.write(str);
+      math_field_g.write(str);
       // Note: the W3 standard says the keystroke for the left arrow is ArrowLeft, but mathquill 
       // uses Left -- may change in a future version
-      math_field.keystroke("Left Left Backspace");
+      math_field_g.keystroke("Left Left Backspace");
       break;
 
     case "log_2":
@@ -96,27 +157,27 @@ function btn(str, simulate_typing) {
     case "sin^{-1}":
     case "cos^{-1}":
     case "tan^{-1}":
-      math_field.write(str);
-      math_field.typedText("(");
+      math_field_g.write(str);
+      math_field_g.typedText("(");
       break;
     case "C":
-      output_field.innerHTML = "= ";
+      output_field_g.innerHTML = "= ";
     case "CE":
-      math_field.select();
-      math_field.keystroke("Backspace");
+      math_field_g.select();
+      math_field_g.keystroke("Backspace");
       break;
 
     case "ms":
-      memory = last_calculated; 
-      if (memory != NaN) { output_field.innerHTML = "Value \"" + memory + "\" stored!"; }
+      memory_g = last_calculated_g;
+      if (memory_g != NaN) { output_field_g.innerHTML = "Value \"" + memory_g + "\" stored!"; }
       break;
-    case "mr": if (memory != NaN) { math_field.write(memory); } break;
-    case "mc": memory = NaN; break;
+    case "mr": if (memory_g != NaN) { math_field_g.write(memory_g); } break;
+    case "mc": memory_g = NaN; break;
     default:
-      if (simulate_typing){ math_field.typedText(str); }
-      else { math_field.write(str); }
+      if (simulate_typing){ math_field_g.typedText(str); }
+      else { math_field_g.write(str); }
   }
-  math_field.focus();
+  math_field_g.focus();
 }
 
 
@@ -176,20 +237,22 @@ function parse_latex(latex, start_index, end_index) {
   let paren_balance = 0;
 
   while (i < latex.length && i < end_index) {
-    console.debug(parsed);
-    if (latex[i] === " ") { console.debug("space"); i += 1; continue; }
+    if (latex[i] === " ") { i += 1; continue; }
     if (latex[i] === "-" || latex[i] === "." || is_numeric(latex[i])) {
       console.debug("num");
       let n = read_real_number(latex, i);
       if (n === "") { console.debug("reading number"); return undefined; }
-      if (n[0] === "-" && is_numeric(parsed[parsed.length - 1])) {
+      if (n[0] === "-" && is_numeric(parsed[parsed.length - 1]) || parsed[parsed.length - 1] === ")") {
         parsed += "+(" + n + ")";
       } else {
         parsed += n;
       }
       i += n.length;
-    } else if (latex[i] === "e") { parsed += "e"; i += 1; }
+    }
+    
+    else if (latex[i] === "e") { parsed += "2.718281828459045"; i += 1; }
     else if (latex[i] === "+") { parsed += "+"; i += 1; }
+
     else if (latex[i] === "^") {
       parsed += "^";
       if (latex[i+1] !== "{") { parsed += latex[i+1]; i += 2; }
@@ -205,11 +268,22 @@ function parse_latex(latex, start_index, end_index) {
     // When we find a backslash it can be either pi, the multiplication symbol, root, parentheses, 
     // fractions or modulo
     else if (latex[i] === "\\") {
-      if (latex[i+1] === "p" ) { parsed += "pi"; i += 3; } // pi
+      if (latex[i+1] === "p" ) { // pi
+        parsed += "3.141592653589793";
+        i += 3;
+      }
+
       // multiplication = "\cdot"
-      else if (latex[i+1] === "c") { console.debug("mult"); parsed += "*"; i += 5; }
-      else if (latex[i+1] === "m") { console.debug("mod"); parsed += "mod"; i += 4; }
-      else if (latex[i+1] === "s" && latex[i+2] === "q") { // root = "\sqrt"
+      else if (latex[i+1] === "c" && latex[i+2] === "d") {
+        console.debug("mult");
+        parsed += "*";
+        i += 5;
+      } else if (latex[i+1] === "m") {
+        console.debug("mod");
+        parsed += "mod";
+        i += 4;
+      } else if (latex[i+1] === "s" && latex[i+2] === "q") {
+        // root = "\sqrt"
         console.debug("square root");
         i += 5;
         let n = "2";
@@ -297,14 +371,11 @@ function parse_latex(latex, start_index, end_index) {
   }
 
   if (paren_balance === 0) {
-    const e = "2.71828183";
-    const pi = "3.14159265";
-    // replace occurrances of "e" and "pi" with their literal values
-    parsed = parsed.replace(/e/g, e);
-    parsed = parsed.replace(/pi/g, pi);
     return parsed;
+  } else {
+    console.debug("unbalanced parens");
+    return undefined;
   }
-  else { console.debug("unbalanced parens"); return undefined; }
 }
 
 
@@ -320,66 +391,63 @@ function tokenize(parsed_latex) {
       stream.push(new Token(r, NUMERICAL, 0, 0));
       i += r.length;
     } else {
-      let arity = 0;
+      let arity = 2;
       let str = "";
       let type = OPERATOR;
-      let prec = 0;
+      let precedence = 3;
 
       switch (parsed_latex[i]) {
         case "+":
-          arity = 2;
           str = parsed_latex[i];
+          precedence = 0;
           break;
         case "*":
         case "/":
-          arity = 2;
           str = parsed_latex[i];
           precedence = 1;
           break;
         case "^":
-          arity = 2;
           str = parsed_latex[i];
           precedence = 2;
           break;
         case "-":
           arity = 1;
           str = parsed_latex[i];
-          precedence = 3;
           break;
         case "r": // root
-          arity = 2;
           str = parsed_latex.substring(i, i+4);
-          precedence = 3;
           break;
         case "l": // log
-          arity = 2;
           str = parsed_latex.substring(i, i+3);
-          precedence = 3;
           break;
         case "a": // inverse trig
           arity = 1;
           str = parsed_latex.substring(i, i+6);
-          precedence = 3;
           break;
         case "s": // trig
         case "c":
         case "t":
           arity = 1;
           str = parsed_latex.substring(i, i+3);
-          precedence = 3;
+          break;
+        case "m": // modulo
+          arity = 2;
+          str = parsed_latex.substring(i, i+3);
+          precedence = 1;
           break;
         case "(":
         case ")":
           str = parsed_latex[i];
           type = PARENTHESIS;
+          precedence = -1;
           break;
         case ",":
-          arity = 2;
           str = parsed_latex[i];
           type = SEPARATOR;
+          precedence = -1;
           break;
       }
-      stream.push(new Token(str, type, arity));
+      stream.push(new Token(str, type, arity, precedence));
       i += str.length;
     }
   }
@@ -387,6 +455,84 @@ function tokenize(parsed_latex) {
 }
 
 
-function infix_to_postfix(infix) {
 
+// Takes a stream of tokens in infix order, and returns an abstract syntax tree.
+// This is an implementation of the shunting yard algorithm by Dijkstra.
+function infix_to_ast(infix) {
+  let operator_stack = new Stack();
+  let node_stack = new Stack();
+
+  for (let i = 0; i < infix.length; i += 1) {
+    switch(infix[i].type) {
+      case NUMERICAL: {
+        node_stack.push(new AST(infix[i], []));
+      } break;
+
+      case OPERATOR:
+      case FUNCTION: {
+        while (!operator_stack.is_empty() && operator_stack.peek().precedence > infix[i].precedence) {
+          let operands = [];
+          const operator = operator_stack.pop();
+          for (let _ = 0; _ < operator.arity; _ += 1) {
+            // unshift pushes to the front of the array
+            operands.unshift(node_stack.pop());
+          }
+          node_stack.push(new AST(operator, operands));
+        }
+        operator_stack.push(infix[i]);
+      } break;
+
+      case PARENTHESIS: {
+        if (infix[i].string === "(") {
+          operator_stack.push(infix[i]);
+        } else {
+          while (!operator_stack.is_empty() && operator_stack.peek().string !== "(") {
+            let operands = [];
+            const operator = operator_stack.pop();
+            for (let _ = 0; _ < operator.arity; _ += 1) {
+              operands.unshift(node_stack.pop());
+            }
+            node_stack.push(new AST(operator, operands));
+          }
+          operator_stack.pop();
+        }
+      } break;
+    }
+  }
+
+  while (!operator_stack.is_empty()) {
+    const operator = operator_stack.pop();
+    let operands = [];
+    for (let _ = 0; _ < operator.arity; _ += 1) {
+      operands.unshift(node_stack.pop());
+    }
+    node_stack.push(new AST(operator, operands));
+  }
+
+  return node_stack.pop();
+}
+
+
+
+function evaluate_ast(ast) {
+  if (ast.children.length === 0) {
+    return parseFloat(ast.token.string);
+  }
+
+  let evaluated = ast.children.map(evaluate_ast);
+  switch (ast.token.string) {
+    case "+": return evaluated[0] + evaluated[1];
+    case "*": return evaluated[0] * evaluated[1];
+    case "/": return evaluated[0] / evaluated[1];
+    case "^": return Math.pow(evaluated[0], evaluated[1]);
+    case "-": return -evaluated[0];
+    case "log": return Math.log(evaluated[1]) / Math.log(evaluated[0]);
+    case "root": return Math.pow(evaluated[1], 1 / evaluated[0]);
+    case "sin": return (deg_rad_g) ? Math.sin(evaluated[0] * Math.PI / 180) : Math.sin(evaluated[0]);
+    case "cos": return (deg_rad_g) ? Math.cos(evaluated[0] * Math.PI / 180) : Math.cos(evaluated[0]);
+    case "tan": return (deg_rad_g) ? Math.tan(evaluated[0] * Math.PI / 180) : Math.tan(evaluated[0]);
+    case "arcsin": return (deg_rad_g) ? Math.asin(evaluated[0] * Math.PI / 180) : Math.asin(evaluated[0]);
+    case "arccos": return (deg_rad_g) ? Math.acos(evaluated[0] * Math.PI / 180) : Math.acos(evaluated[0]);
+    case "arctan": return (deg_rad_g) ? Math.atan(evaluated[0] * Math.PI / 180) : Math.atan(evaluated[0]);
+  }
 }

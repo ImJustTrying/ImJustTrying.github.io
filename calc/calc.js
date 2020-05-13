@@ -123,6 +123,11 @@ function btn(str, simulate_typing) {
       }
 
       const tokens = tokenize(parsed_input);
+      if (tokens === undefined) {
+        output_field_g.innerHTML = "Syntax error";
+        break;
+      }
+
       const ast = infix_to_ast(tokens);
       console.debug("tokenized:", tokens);
       console.debug("AST: ", ast);
@@ -446,6 +451,8 @@ function tokenize(parsed_latex) {
           type = SEPARATOR;
           precedence = -1;
           break;
+        default:
+          return undefined;
       }
       stream.push(new Token(str, type, arity, precedence));
       i += str.length;

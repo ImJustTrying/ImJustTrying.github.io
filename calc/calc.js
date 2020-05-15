@@ -2,9 +2,9 @@
   Kevin Vicente
   November 2019
 
-  This is the javascript accompanying the calculator html & css.
-  This handles parsing latex into infix strings, sending queries to the server and some mathquill
-  stuff. 
+  We structure the program as follows: define global constants, variables and structures, then
+  define procedures including main(), parse_latex(), btn(), etc. This is structured in a procedural
+  manner -- i.e. not object-oriented.
 */
 
 
@@ -85,14 +85,17 @@ function main() {
   rep_type_selector.addEventListener("change", function() {
     rep_type_g = rep_type_selector.value;
     if (last_calculated_g !== undefined) {
-      output_field_g.innerHTML = get_string_representation(last_calculated_g);
+      output_field_g.innerHTML = "= " + get_string_representation(last_calculated_g);
     }
   });
 
   rep_type_g = rep_type_selector.value;
+  math_field_g.focus();
 }
 
 
+// Given the representation type selected by the user, return the string representation of the
+// passed in value.
 function get_string_representation(value) {
   switch(rep_type_g) {
     case "reg": return value.toString();
@@ -110,12 +113,12 @@ function get_string_representation(value) {
 // it should simulate a person typing the string (true)
 function btn(str, simulate_typing) {
   switch (str) {
-    case "=":
+    case "=": {
       // We need to parse our latex string into an infix string, and send it to the server for
       // evlaulation
-      const l = math_field_g.latex();
-      const parsed_input = parse_latex(l, 0, l.length);
-      console.debug("raw latex: " + l);
+      const latex = math_field_g.latex();
+      const parsed_input = parse_latex(latex, 0, latex.length);
+      console.debug("raw latex: " + latex);
       console.debug("parsed: " + parsed_input);
       if (parsed_input === undefined) {
         output_field_g.innerHTML = "Syntax error";
@@ -136,7 +139,37 @@ function btn(str, simulate_typing) {
       // Truncate to zero when the floating point error is small enough
       if (last_calculated_g < Number.EPSILON) { value = 0; }
       output_field_g.innerHTML = "= " + get_string_representation(last_calculated_g);
-      break;
+
+      // Now we need to upadate the history window
+      const history_container = document.querySelector("#history_container");
+      let latex_history = history_container.getElementsByClassName("history_box_latex");
+      let value_history = history_container.getElementsByClassName("history_box_value");
+      // Remove the top row
+      latex_history[0].remove();
+      value_history[0].remove();
+
+      // create new elements, set the classes and the inner HTML, and add them to the container
+      let latex_history_element = document.createElement("span");
+      latex_history_element.className = "history_box_latex";
+      latex_history_element.addEventListener("click", function() {
+        math_field_g.write(latex_math_field.latex());
+        math_field_g.focus();
+      });
+      let latex_math_field = mq_g.StaticMath(latex_history_element); // create a static math field
+      latex_math_field.latex(latex); // give the field it's latex source to render
+      history_container.append(latex_history_element); // append the element to the container
+      latex_math_field.reflow(); // recompute dimensions of rendered text
+
+      let value_history_element = document.createElement("span");
+      value_history_element.className = "history_box_value";
+      value_history_element.innerHTML = last_calculated_g;
+      value_history_element.addEventListener("click", function() {
+        math_field_g.write(value_history_element.innerHTML);
+        math_field_g.focus();
+      });
+      history_container.append(value_history_element);
+    } break;
+
 
     case "deg_rad":
       deg_rad_g = !deg_rad_g;
@@ -255,7 +288,7 @@ function parse_latex(latex, start_index, end_index) {
       i += n.length;
     }
     
-    else if (latex[i] === "e") { parsed += "2.718281828459045"; i += 1; }
+    else if (latex[i] === "e") { parsed += "e"; i += 1; }
     else if (latex[i] === "+") { parsed += "+"; i += 1; }
 
     else if (latex[i] === "^") {
@@ -273,21 +306,21 @@ function parse_latex(latex, start_index, end_index) {
     // When we find a backslash it can be either pi, the multiplication symbol, root, parentheses, 
     // fractions or modulo
     else if (latex[i] === "\\") {
-      if (latex[i+1] === "p" ) { // pi
-        parsed += "3.141592653589793";
+      if (latex.substring(i+1, i+3) === "pi" ) {
+        parsed += "pi";
         i += 3;
       }
 
       // multiplication = "\cdot"
-      else if (latex[i+1] === "c" && latex[i+2] === "d") {
+      else if (latex.substring(i+1, i+5) === "cdot") {
         console.debug("mult");
         parsed += "*";
         i += 5;
-      } else if (latex[i+1] === "m") {
+      } else if (latex.substring(i+1, i+4) === "mod") {
         console.debug("mod");
         parsed += "mod";
         i += 4;
-      } else if (latex[i+1] === "s" && latex[i+2] === "q") {
+      } else if (latex.substring(i+1, i+4) === "sqrt") {
         // root = "\sqrt"
         console.debug("square root");
         i += 5;
@@ -307,7 +340,7 @@ function parse_latex(latex, start_index, end_index) {
       }
 
       // Logarithms
-      else if (latex[i+1] === "l" && latex[i+2] === "o") {
+      else if (latex.substring(i+1, i+4) === "log") {
         i += 5;
         let j = 0;
         let base = "";
@@ -321,7 +354,7 @@ function parse_latex(latex, start_index, end_index) {
           i = j + 1;
         }
 
-        if (latex[i] == "\\" && latex[i+1] == "l" && latex[i+2] == "e") {
+        if (latex.substring(i, i+5) === "\\left") {
           i += 5;
           j = find_corresponding_bracket(latex, i);
           if (val == undefined) { console.debug("log v"); return undefined; }
@@ -333,17 +366,17 @@ function parse_latex(latex, start_index, end_index) {
       } 
 
       // For whatever reason, mathquill uses "\left(" and "\right)" instead of just "(" and ")"
-      else if (latex[i+1] === "l" && latex[i+2] === "e") {
+      else if (latex.substring(i+1, i+5) === "left") {
         console.debug("left paren");
         parsed += "("; i += 6; paren_balance += 1;
-      } else if (latex[i+1] === "r") {
+      } else if (latex.substring(i+1, i+6) === "right") {
         console.debug("right paren");
         if (paren_balance === 0) { console.debug("right parens"); return undefined; }
         parsed += ")"; i += 7; paren_balance -= 1;
       }
 
       // Fractions = "\frac{1}{2}"
-      else if (latex[i+1] === "f") {
+      else if (latex.substring(i+1, i+5) === "frac") {
         console.debug("fraction");
         i += 5;
         let j = find_corresponding_bracket(latex, i);
@@ -360,9 +393,10 @@ function parse_latex(latex, start_index, end_index) {
 
       // Trig functions -- note that we don't read the value in the parentheses, we let our method
       // do that for us (since we already have code to do this in the procedure)
-      else if (latex[i+1] === "s" || latex[i+1] === "c" || latex[i+1] === "t") {
+      else if (latex.substring(i+1, i+4) === "sin" || latex.substring(i+1, i+4) === "cos" ||
+               latex.substring(i+1, i+4) === "tan") {
         console.debug("trig");
-        if (latex[i+4] === "^") { // need to write inverse trig function
+        if (latex.substring(i+4, i+9) === "^{-1}") { // need to write inverse trig function
           parsed += "arc" + latex.substring(i+1, i+4);
           i += 9;
         } else {
@@ -376,6 +410,10 @@ function parse_latex(latex, start_index, end_index) {
   }
 
   if (paren_balance === 0) {
+    const e = "2.718281828459045";
+    const pi = "3.141592653589793";
+    parsed = parsed.replace(/e/g, e);
+    parsed = parsed.replace(/pi/g, pi);
     return parsed;
   } else {
     console.debug("unbalanced parens");

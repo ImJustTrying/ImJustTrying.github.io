@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title>Scientific Calculator</title>
     <meta charset="UTF-8">
@@ -23,6 +23,11 @@
 
     <div id="container">
       <div id="io_container">
+        <div id="history_container" class="grey_box">
+          <span class="history_box_latex">a</span><span class="history_box_value">1</span>
+          <span class="history_box_latex">b</span><span class="history_box_value">2</span>
+          <span class="history_box_latex">c</span><span class="history_box_value">3</span>
+        </div>
         <div id="output_container" class="grey_box output">
           <p id="output">= </p>
         </div>
@@ -33,7 +38,7 @@
           <option value="base8">Octal</option>
           <option value="base16">Hexadecimal</option>
         </select>
-        <span id="text_input" class="grey_box"></span>
+        <span placeholder="Enter expression here" id="text_input" class="grey_box"></span>
       </div>
       <br>
 
@@ -98,7 +103,7 @@
             <a href="https://loading.io">Loading.io</a>: For the loading spinner
           </li>
         </ul>
-        <a href="https://github.com/ImJustTrying/Website/tree/master/calc">Source code</a>
+        <a href="https://github.com/ImJustTrying/ImJustTrying.github.io">Source code</a>
       </footer>
     </div> <!-- container -->
   </body>

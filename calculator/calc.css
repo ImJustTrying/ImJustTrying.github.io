@@ -40,6 +40,10 @@ button {
   background-color: #f0f0f0;
 }
 
+button:hover {
+  background-color: #d6d6d6;
+}
+
 td {
   color: #fff;
 }
@@ -156,7 +160,7 @@ select {
   #io_container {
     width: 100%;
     grid-template-columns: auto;
-    grid-template-rows: 225px 60px 60px 60px;
+    grid-template-rows: 225px 70px 60px auto;
   }
 
   #btn_container {

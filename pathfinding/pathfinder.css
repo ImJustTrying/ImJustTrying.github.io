@@ -1,0 +1,23 @@
+body {
+  background-color: #1a1a1a;
+  color: #fff;
+  font-size: 18px;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+canvas {
+  color: black;
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 600;
+  padding: 0;
+  border: 1px solid white;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}

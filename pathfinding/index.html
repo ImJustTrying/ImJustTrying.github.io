@@ -1,14 +1,35 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>A* search visualizer</title>
+    <title>Pathfinding visualizer</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="astar.css">
-    <script src="astar.js"></script>
+    <link rel="stylesheet" href="pathfinder.css">
+    <link rel="stylesheet" href="../shared/fontawesome/css/all.css">
+    <script src="pathfinder.js"></script>
   </head>
 
   <body onload="init()" onresize="resize()">
+    <header>
+      <select id="" name="">
+        <option value="astar">A* search</option>
+        <option value="dijkstra">Dijkstra's algorithm</option>
+        <option value="bfs">Breadth first search</option>
+        <option value="dfs">Depth first search</option>
+      </select>
+
+      <select id="" name="">
+        <option value="rediv">Recursive division</option>
+        <option value="binary">Binary tree method</option>
+        <option value="reback">Recursive backtracker</option>
+        <option value="kruskal">Randomized Kruskal's algorithm</option>
+        <option value="prim">Randomized Prim's algorithm</option>
+        <option value="wilson">Wilson's algorithm</option>
+      </select>
+
+      <button>Find path</button>
+      <button>Generate maze</button>
+    </header>
     <canvas id="canvas"></canvas>
   </body>
 </html>

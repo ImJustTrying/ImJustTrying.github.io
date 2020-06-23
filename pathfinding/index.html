@@ -6,19 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="pathfinder.css">
     <link rel="stylesheet" href="../shared/fontawesome/css/all.css">
+
+    <script src="graph.js"></script>
     <script src="pathfinder.js"></script>
   </head>
 
   <body onload="init()" onresize="resize()">
     <header>
-      <select id="" name="">
+      <label for="search">Search algorithm:</label>
+      <select id="search" onchange="update_search()">
         <option value="astar">A* search</option>
         <option value="dijkstra">Dijkstra's algorithm</option>
         <option value="bfs">Breadth first search</option>
         <option value="dfs">Depth first search</option>
       </select>
 
-      <select id="" name="">
+      <label for="maze">Maze algorithm:</label>
+      <select id="maze" onchange="update_maze()">
         <option value="rediv">Recursive division</option>
         <option value="binary">Binary tree method</option>
         <option value="reback">Recursive backtracker</option>
@@ -26,10 +30,20 @@
         <option value="prim">Randomized Prim's algorithm</option>
         <option value="wilson">Wilson's algorithm</option>
       </select>
-
       <button>Find path</button>
       <button>Generate maze</button>
     </header>
+
+    <button id="menu-slider" onclick="switch_menu_state()">
+      <i id="arrows" class="fas fa-angle-double-left"></i>
+    </button>
+    <div id="edit-menu">
+      <button><i class="fas fa-pencil-alt"></i></button>
+      <button><i class="fas fa-eraser"></i></button>
+      <button><i class="fas fa-search-minus"></i></button>
+      <button><i class="fas fa-search-plus"></i></button>
+    </div>
+
     <canvas id="canvas"></canvas>
   </body>
 </html>

@@ -16,6 +16,7 @@ interface Vertex {
   y: number;
   icon?: string;
   cell_type?: CellType;
+  intermediate_index?: number;
 }
 
 interface Option<T> {
@@ -43,10 +44,8 @@ class Graph {
   private goal: Vertex;
   private intermediates: [Vertex, Vertex, Vertex];
   private walls: object;
-  public width: number;
-  public height: number;
-  public new_walls: Vertex[] = [];
-  public old_walls: Vertex[] = [];
+  private width: number;
+  private height: number;
 
 
   constructor() {
@@ -55,12 +54,118 @@ class Graph {
     this.goal = intermediate;
     this.intermediates = [intermediate, intermediate, intermediate];
     this.walls = {};
+    this.width = 0;
+    this.height = 0;
   }
 
-  get_intermediate_at(position: Vertex): Option<Vertex> {
-    for (const intermediate of this.intermediates) {
-      if (vertices_equal(intermediate, position)) {
-        return { ok: true, value: intermediate };
+  get_width(): number { return this.width; }
+  get_height(): number { return this.height; }
+
+  bound_check(v: Vertex): boolean {
+    return v.x >= 0 && v.x < this.width && v.y >= 0 && v.y < this.height;
+  }
+
+  remove_intermediate(): void {
+    for (let i = 2; i >= 0; i -= 1) {
+      if (this.bound_check(this.intermediates[i])) {
+        this.intermediates[i].x = -1;
+        this.intermediates[i].y = -1;
+      }
+    }
+  }
+
+  add_intermediate(): void {
+    for (let i = 0; i < 3; i += 1) {
+      if (!this.bound_check(this.intermediates[i])) {
+        const queue: Vertex[] = [{x: 0, y: 0}];
+        let found_backup: boolean = false;
+        let backup_vertex: Vertex;
+
+        while (queue.length > 0) {
+          const v: Vertex = queue.shift();
+          if (!this.is_special_vertex_at(v)) {
+            found_backup = true;
+            backup_vertex = v;
+          }
+
+          if (!this.is_special_vertex_at(v) && !this.is_wall(v)) {
+            this.set_special_vertex(v, CellType.Intermediate, i);
+            return;
+          }
+          this.get_neighbors(v).filter((v) => this.bound_check(v)).map((v) => queue.push(v));
+        }
+
+        if (found_backup) {
+          this.set_special_vertex(backup_vertex, CellType.Intermediate, i);
+          return;
+        }
+      }
+    }
+  }
+
+  set_width_and_height(new_width: number, new_height: number): void {
+    const out_of_bounds: Vertex[] =
+      this
+      .get_special_vertices_copy()
+      .filter((v) => v.x >= new_width || v.y >= new_height);
+    this.width = new_width;
+    this.height = new_height;
+
+    // Reposition any special vertices that are no longer within the graph bounds
+    for (const v of out_of_bounds) {
+      // We will first calculate the closest cell to the out of bounds vertex
+      const nearest: Vertex = {
+        x: (v.x >= new_width) ? new_width - 1 : v.x,
+        y: (v.y >= new_height) ? new_height - 1 : v.y
+      };
+
+      // Then, we do breadth first search for the nearest empty cell starting at that cell
+      const queue: Vertex[] = [nearest];
+      let found: boolean = false;
+      let found_vertex: Vertex;
+      while (queue.length > 0) {
+        const vertex: Vertex = queue.shift();
+        this
+        .get_neighbors(vertex)
+        .filter((vert) => this.bound_check(vert))
+        .map((vert) => queue.push(vert));
+
+        if (!this.is_special_vertex_at(vertex) && !this.is_wall(vertex)) {
+          found_vertex = vertex;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        this.set_void(nearest);
+        found_vertex = nearest;
+      }
+      switch (v.cell_type) {
+        case CellType.Start:
+          this.start.x = found_vertex.x;
+          this.start.y = found_vertex.y;
+          break;
+        case CellType.Goal:
+          this.goal.x = found_vertex.x;
+          this.goal.y = found_vertex.y;
+          break;
+        case CellType.Intermediate:
+          const k = this.get_intermediate_index_at(found_vertex);
+          if (k.ok) {
+            this.intermediates[k.value].x = found_vertex.x;
+            this.intermediates[k.value].y = found_vertex.y;
+          }
+          break;
+      }
+    }
+  }
+
+
+  get_intermediate_index_at(position: Vertex): Option<number> {
+    for (let i = 0; i < 3; i += 1) {
+      if (vertices_equal(this.intermediates[i], position)) {
+        return { ok: true, value: i };
       }
     }
     return { ok: false, err: "No intermediate node at that position" };
@@ -70,9 +175,9 @@ class Graph {
     if (this.width <= 1 && this.height <= 1) { return []; }
     let neighbors = [];
     if (vertex.x > 0)           { neighbors.push({x: vertex.x - 1, y: vertex.y}); }
-    if (vertex.x < this.width)  { neighbors.push({x: vertex.x + 1, y: vertex.y}); }
+    if (vertex.x < this.width - 1)  { neighbors.push({x: vertex.x + 1, y: vertex.y}); }
     if (vertex.y > 0)           { neighbors.push({x: vertex.x, y: vertex.y - 1}); }
-    if (vertex.y < this.height) { neighbors.push({x: vertex.x, y: vertex.y + 1}); }
+    if (vertex.y < this.height - 1) { neighbors.push({x: vertex.x, y: vertex.y + 1}); }
     return neighbors;
   }
 
@@ -100,21 +205,29 @@ class Graph {
     }
   }
 
-  bound_check(v: Vertex): boolean {
-    if (v.x < 0 || v.x > this.width || v.y < 0 || v.y > this.height) {
-      return false;
+  get_special_vertex_at(v: Vertex): Option<Vertex> {
+    if (!this.bound_check(v)) {
+      return { ok: false, err: "Invalid vertex" };
     }
 
-    // Check if other special vertices are where v is specified
-    if (v.x >= 0 && v.x <= this.width && v.y >= 0 && v.y <= this.height) {
-      const special_vertices = this.get_special_vertices_copy();
-      for (const vertex of special_vertices) {
-        if (vertices_equal(vertex, v)) {
-          return false;
-        }
+    const special_vertices = this.get_special_vertices_copy();
+    for (const vertex of special_vertices) {
+      if (vertices_equal(vertex, v)) {
+        return { ok: true, value: vertex };
       }
     }
-    return true;
+    return { ok: false, err: "No special vertex at given position" };
+  }
+
+  is_special_vertex_at(v: Vertex): boolean {
+    // Check if other special vertices are where v is specified
+    const special_vertices = this.get_special_vertices_copy();
+    for (const vertex of special_vertices) {
+      if (vertices_equal(vertex, v)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   set_special_vertex(v: Vertex, cell_type: CellType, intermediate_index: number = 0): boolean {
@@ -139,6 +252,7 @@ class Graph {
           this.intermediates[intermediate_index] = v;
           this.intermediates[intermediate_index].cell_type = CellType.Intermediate;
           this.intermediates[intermediate_index].icon = "\uf054";
+          this.intermediates[intermediate_index].intermediate_index = intermediate_index;
           break;
         }
 
@@ -152,32 +266,29 @@ class Graph {
   // Here, we just create a key that is unique to the given vertex, then check if the value in
   // the walls object is undefined or not
   flip_wall_status(v: Vertex): void {
-    const key: string = v.x.toPrecision(2) + v.y.toPrecision(2);
-    const value: any = this.walls[key];
-    if (value === undefined) {
+    const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+    if (this.walls[key] === undefined) {
       this.walls[key] = true;
-      this.new_walls.push(v);
     } else {
       this.walls[key] = undefined;
-      this.old_walls.push(v);
     }
   }
 
   set_wall(v: Vertex): void {
-    const key: string = v.x.toPrecision(2) + v.y.toPrecision(2);
-    const value: any = this.walls[key];
-    if (value === undefined) {
-      this.walls[key] = true;
-      this.new_walls.push(v);
+    if (this.bound_check(v)) {
+      const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+      if (this.walls[key] === undefined) {
+        this.walls[key] = true;
+      }
     }
   }
 
   set_void(v: Vertex): void {
-    const key: string = v.x.toPrecision(2) + v.y.toPrecision(2);
-    const value: any = this.walls[key];
-    if (value !== undefined) {
-      this.walls[key] = undefined;
-      this.old_walls.push(v);
+    if (this.bound_check(v)) {
+      const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+      if (this.walls[key] !== undefined) {
+        this.walls[key] = undefined;
+      }
     }
   }
  
@@ -185,9 +296,23 @@ class Graph {
   get_walls(): Vertex[] {
     const walls = [];
     for (const key of Object.keys(this.walls)) {
-      const v = { x: parseInt(key.substr(0, 2)), y : parseInt(key.substr(2, 2)) };
-      walls.push(v);
+      if (this.walls[key] !== undefined) {
+        walls.push({ x: parseInt(key.substr(0, 3)), y : parseInt(key.substr(3, 3)) });
+      }
     }
     return walls;
+  }
+
+  clear_walls(): void {
+    for (const key of Object.keys(this.walls)) {
+      if (this.walls[key] !== undefined) {
+        this.walls[key] = undefined;
+      }
+    }
+  }
+
+  is_wall(v: Vertex): boolean {
+    const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+    return this.walls[key] !== undefined;
   }
 }

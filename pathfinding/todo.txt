@@ -1,4 +1,3 @@
-* I think that the reason the mouse drawing is slow is that we keep calling
-  window.requestAnimationFrame() despite not animating for many frames at a time when drawing
-  walls. Therefore, I think I need to refactor the drawing method -- perhaps only use it when
-  dragging icons and walls.
+Need to fix the intermediate states getting reset when one of them is dragged. After that, there
+should be a UI feature where the intermediate states are labelled from 1 to 3 to indicate which
+ones will be sought after first during pathfinding.

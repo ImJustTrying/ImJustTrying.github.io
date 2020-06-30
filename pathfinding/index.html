@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="pathfinder.css">
-    <link rel="stylesheet" href="../shared/fontawesome/css/all.css">
+    <link rel="stylesheet" href="../shared/fontawesome/css/all.min.css">
 
     <script src="graph.js"></script>
-    <script src="pathfinder.js"></script>
+    <script src="ui.js"></script>
+    <script src="dom.js"></script>
   </head>
 
   <body onload="init()" onresize="resize()">
@@ -30,20 +31,36 @@
         <option value="prim">Randomized Prim's algorithm</option>
         <option value="wilson">Wilson's algorithm</option>
       </select>
-      <button>Find path</button>
-      <button>Generate maze</button>
+      <button onclick="pathfind()">Find path</button>
+      <button onclick="gen_maze()">Generate maze</button>
+      <button onclick="clear_grid()">Clear grid</button>
     </header>
 
     <button id="menu-slider" onclick="switch_menu_state()">
       <i id="arrows" class="fas fa-angle-double-left"></i>
     </button>
     <div id="edit-menu">
-      <button><i class="fas fa-pencil-alt"></i></button>
-      <button><i class="fas fa-eraser"></i></button>
-      <button><i class="fas fa-search-minus"></i></button>
-      <button><i class="fas fa-search-plus"></i></button>
+      <button id="write" class="enabled" onclick="enable_btn(true)">
+        <i class="fas fa-pencil-alt"></i>
+      </button>
+      <button id="erase" class="disabled" onclick="enable_btn(false)">
+        <i class="fas fa-eraser"></i>
+      </button>
+      <button class="disabled" onclick="zoom(false)">
+        <i class="fas fa-search-minus"></i>
+      </button>
+      <button class="disabled" onclick="zoom(true)">
+        <i class="fas fa-search-plus"></i>
+      </button>
+      <button class="disabled" style="padding-left: 15px;" onclick="intermediates(true)">
+        +<i style="display: inline; padding-left: 3px" class="fas fa-chevron-right"></i>
+      </button>
+      <button class="disabled"style="padding-left: 15px;" onclick="intermediates(false)">
+        -<i style="display: inline; padding-left: 5px" class="fas fa-chevron-right"></i>
+      </button>
     </div>
 
-    <canvas id="canvas"></canvas>
+    <canvas id="foreground"></canvas>
+    <canvas id="background"></canvas>
   </body>
 </html>

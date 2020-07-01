@@ -75,15 +75,18 @@ class Graph {
   }
 
   add_intermediate(): void {
+    // Look for the first intermediate vertex that is not initialized
     for (let i = 0; i < 3; i += 1) {
       if (!this.bound_check(this.intermediates[i])) {
         const queue: Vertex[] = [{x: 0, y: 0}];
         let found_backup: boolean = false;
         let backup_vertex: Vertex;
 
+        // Do breadth first search from the cell at 0,0 for an empty cell. If we can't find one, we
+        // just choose the first cell we found with a wall and put it there
         while (queue.length > 0) {
           const v: Vertex = queue.shift();
-          if (!this.is_special_vertex_at(v)) {
+          if (!this.is_special_vertex_at(v) && !found_backup) {
             found_backup = true;
             backup_vertex = v;
           }
@@ -184,7 +187,13 @@ class Graph {
   // Will return deep copies of the special vertices
   get_special_vertices_copy(): Vertex[] {
     function copy_vertex(v: Vertex) {
-      return { x : v.x, y: v.y, icon: v.icon, cell_type: v.cell_type };
+      return {
+        x: v.x,
+        y: v.y,
+        icon: v.icon,
+        cell_type: v.cell_type,
+        intermediate_index: v.intermediate_index
+      };
     }
     const vertices =  [
       this.start,
@@ -231,7 +240,8 @@ class Graph {
   }
 
   set_special_vertex(v: Vertex, cell_type: CellType, intermediate_index: number = 0): boolean {
-    if (this.bound_check(v)) {
+    if (this.bound_check(v) && (!this.is_special_vertex_at(v) || this.is_special_vertex_at(v) &&
+        this.get_special_vertex_at(v).value.cell_type === cell_type)) {
       switch (cell_type) {
         // The unicode values are for font awesome
         case CellType.Start: {

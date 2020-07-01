@@ -1,3 +1,4 @@
-Need to fix the intermediate states getting reset when one of them is dragged. After that, there
-should be a UI feature where the intermediate states are labelled from 1 to 3 to indicate which
-ones will be sought after first during pathfinding.
+There is a bug where, when the user clicks a special vertex and places it back in the same place,
+the icon for the special vertex is invisible -- it is in the correct place in the state. Also,
+there are issues again with resizing and zooming -- again, icons are in the correct places (it
+seems), but icons are not being drawn.

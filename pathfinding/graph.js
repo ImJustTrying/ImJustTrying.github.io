@@ -53,9 +53,11 @@ var Graph = /** @class */ (function () {
                 var queue_1 = [{ x: 0, y: 0 }];
                 var found_backup = false;
                 var backup_vertex = void 0;
+                // Do breadth first search from the cell at 0,0 for an empty cell. If we can't find one, we
+                // just choose the first cell we found with a wall and put it there
                 while (queue_1.length > 0) {
                     var v = queue_1.shift();
-                    if (!this_1.is_special_vertex_at(v)) {
+                    if (!this_1.is_special_vertex_at(v) && !found_backup) {
                         found_backup = true;
                         backup_vertex = v;
                     }
@@ -72,6 +74,7 @@ var Graph = /** @class */ (function () {
             }
         };
         var this_1 = this;
+        // Look for the first intermediate vertex that is not initialized
         for (var i = 0; i < 3; i += 1) {
             var state_1 = _loop_1(i);
             if (typeof state_1 === "object")
@@ -165,7 +168,13 @@ var Graph = /** @class */ (function () {
     // Will return deep copies of the special vertices
     Graph.prototype.get_special_vertices_copy = function () {
         function copy_vertex(v) {
-            return { x: v.x, y: v.y, icon: v.icon, cell_type: v.cell_type };
+            return {
+                x: v.x,
+                y: v.y,
+                icon: v.icon,
+                cell_type: v.cell_type,
+                intermediate_index: v.intermediate_index
+            };
         }
         var vertices = [
             this.start,
@@ -210,7 +219,8 @@ var Graph = /** @class */ (function () {
     };
     Graph.prototype.set_special_vertex = function (v, cell_type, intermediate_index) {
         if (intermediate_index === void 0) { intermediate_index = 0; }
-        if (this.bound_check(v)) {
+        if (this.bound_check(v) && (!this.is_special_vertex_at(v) || this.is_special_vertex_at(v) &&
+            this.get_special_vertex_at(v).value.cell_type === cell_type)) {
             switch (cell_type) {
                 // The unicode values are for font awesome
                 case CellType.Start: {

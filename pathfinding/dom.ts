@@ -9,7 +9,6 @@
 
 function init(): void {
   (document as any).fonts.ready.then(function() {
-    console.debug("start");
     const state = new Graph();
     ui = new UI(30, state);
     state.set_special_vertex({x: 0, y: 0}, CellType.Start);
@@ -118,11 +117,12 @@ function enable_btn(draw_walls: boolean): void {
 function zoom(zoom_in: boolean): void {
   if (zoom_in && ui.cell_size <= 50) {
     ui.cell_size += 10;
-    resize();
   } else if (!zoom_in && ui.cell_size >= 30) {
     ui.cell_size -= 10;
-    resize();
   }
+  resize();
+  draw_grid();
+  window.requestAnimationFrame(draw);
 }
 
 function clear_grid(): void {

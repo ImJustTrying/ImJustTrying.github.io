@@ -35,13 +35,21 @@ var maze_generator = Maze.Division;
 var editing = [false, true];
 var last_mouse_cell = { x: 0, y: 0 };
 var mouse = { x: 0, y: 0 };
-function update_mouse_coords(event) {
-    event.preventDefault();
-    //event.stopPropogation();
-    var rect = this.getBoundingClientRect();
-    var pixel_coord = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    mouse.x = pixel_coord.x;
-    mouse.y = pixel_coord.y;
+// Event handlers
+function update_mouse_coords(event, coord) {
+    if (coord === void 0) { coord = undefined; }
+    if (coord === undefined) {
+        event.preventDefault();
+        //event.stopPropogation();
+        var rect = this.getBoundingClientRect();
+        var pixel_coord = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        mouse.x = pixel_coord.x;
+        mouse.y = pixel_coord.y;
+    }
+    else {
+        mouse.x = coord.x;
+        mouse.y = coord.y;
+    }
 }
 // A mousemove event handler
 function change_wall_status(event) {
@@ -65,6 +73,7 @@ function change_wall_status(event) {
         }
     }
 }
+// Drawing functions
 function draw_grid() {
     var ctx = ui.background.getContext("2d", { alpha: false });
     var cellsize = ui.cell_size;
@@ -104,9 +113,8 @@ function draw(timestamp) {
         x: (mouse.x - mouse.x % cellsize) / cellsize,
         y: (mouse.y - mouse.y % cellsize) / cellsize
     };
-    ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
-    ctx.fillStyle = "white";
     ctx.textBaseline = "bottom";
+    ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
     ui.clear();
     // If the mouse exits the grid, draw the 
     if (cell_coord.x >= ui.state.get_width()) {
@@ -117,14 +125,23 @@ function draw(timestamp) {
     }
     // Draw icons for special vertices
     if (ui.drag[0]) {
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
         ctx.fillText(ui.drag[1].icon, mouse.x, mouse.y);
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "start";
     }
     for (var _i = 0, vertices_1 = vertices; _i < vertices_1.length; _i++) {
         var vertex = vertices_1[_i];
         // Don't draw the icon we're dragging
         if (!vertices_equal(vertex, ui.drag[1]) && ui.state.bound_check(vertex)) {
-            //console.debug(`drawing cell type ${vertex.cell_type} at (${vertex.x}, ${vertex.y}), icon = ${vertex.icon}`);
             ctx.fillText(vertex.icon, vertex.x * cellsize, (vertex.y + 1) * cellsize);
+            // Write a subscript for the intermediate vertices
+            if (vertex.cell_type === CellType.Intermediate) {
+                ctx.font = "600 " + (cellsize / 2).toString() + "px 'Font Awesome 5 Free'";
+                ctx.fillText((vertex.intermediate_index + 1).toString(), vertex.x * cellsize + cellsize / 2, (vertex.y + 1) * cellsize);
+                ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
+            }
         }
     }
     // Draw walls
@@ -147,12 +164,11 @@ var UI = /** @class */ (function () {
         this.ctx = this.foreground.getContext("2d");
         this.drag = [false, { x: -1, y: -1 }];
         this.resize();
+        this.ctx.fillStyle = "white";
         // We add some event listeners for dragging and dropping icons.
         // Note that these only updated the dragging variable -- the actual drawing is done in draw().
         var drag = this.drag;
         var ctx = this.ctx;
-        this.foreground.addEventListener("click", function (event) {
-        });
         this.foreground.addEventListener("mousedown", function (event) {
             var rect = this.getBoundingClientRect();
             var pixel_coord = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -166,11 +182,11 @@ var UI = /** @class */ (function () {
                 if (state.is_special_vertex_at(cell_coord)) {
                     var vertex = state.get_special_vertex_at(cell_coord);
                     if (vertex.ok) {
-                        console.debug("ok");
                         drag[0] = true;
                         drag[1] = vertex.value;
                         this.addEventListener("mousemove", update_mouse_coords);
                         this.event_listener_exists = true;
+                        update_mouse_coords(undefined, pixel_coord);
                         window.requestAnimationFrame(draw);
                     }
                 }
@@ -180,21 +196,32 @@ var UI = /** @class */ (function () {
                     this.addEventListener("mousemove", change_wall_status);
                     // If we don't click on a special vertex, we want to fill or erase the selected cell
                     // according to the user's editing mode
-                    if (editing[1]) {
-                        state.set_wall(cell_coord);
-                        ui.ctx.fillRect(cell_coord.x * ui.cell_size, cell_coord.y * ui.cell_size, ui.cell_size, ui.cell_size);
-                    }
-                    else {
-                        state.set_void(cell_coord);
-                        ui.ctx.clearRect(cell_coord.x * ui.cell_size, cell_coord.y * ui.cell_size, ui.cell_size, ui.cell_size);
+                    if (state.bound_check(cell_coord)) {
+                        if (editing[1]) {
+                            state.set_wall(cell_coord);
+                            ui.ctx.fillRect(cell_coord.x * ui.cell_size, cell_coord.y * ui.cell_size, ui.cell_size, ui.cell_size);
+                        }
+                        else {
+                            state.set_void(cell_coord);
+                            ui.ctx.clearRect(cell_coord.x * ui.cell_size, cell_coord.y * ui.cell_size, ui.cell_size, ui.cell_size);
+                        }
                     }
                 }
             }
             // Otherwise, if we are dragging something check that the cell that was clicked is empty --
             // i.e. has no special vertices, and if empty set dragging to false.
             else {
-                if (state.is_special_vertex_at(cell_coord) || state.is_wall(cell_coord)) {
+                if (state.is_wall(cell_coord)) {
                     return;
+                }
+                // If there is a special vertex with a different cell type or intermediate index, then
+                // do not do anything and return
+                if (state.is_special_vertex_at(cell_coord)) {
+                    var v = state.get_special_vertex_at(cell_coord);
+                    if (!(v.ok && v.value.cell_type === drag[1].cell_type &&
+                        v.value.intermediate_index === drag[1].intermediate_index)) {
+                        return;
+                    }
                 }
                 if (drag[1].cell_type === CellType.Intermediate) {
                     drag[0] = !state.set_special_vertex(cell_coord, drag[1].cell_type, drag[1].intermediate_index);
@@ -205,6 +232,7 @@ var UI = /** @class */ (function () {
                 if (this.event_listener_exists && !drag[0]) {
                     this.removeEventListener("mousemove", update_mouse_coords);
                     this.event_listener_exists = false;
+                    window.requestAnimationFrame(draw);
                 }
             }
         });

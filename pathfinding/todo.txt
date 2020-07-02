@@ -1,4 +1,2 @@
-There is a bug where, when the user clicks a special vertex and places it back in the same place,
-the icon for the special vertex is invisible -- it is in the correct place in the state. Also,
-there are issues again with resizing and zooming -- again, icons are in the correct places (it
-seems), but icons are not being drawn.
+Now, I'm finally writing the pathfinding and maze generation code. I've written some notes in the
+file responsible for that, but I'm not sure what issues will appear as I start writting the stuff.

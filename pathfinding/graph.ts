@@ -125,42 +125,37 @@ class Graph {
       // Then, we do breadth first search for the nearest empty cell starting at that cell
       const queue: Vertex[] = [nearest];
       let found: boolean = false;
+      let found_backup: boolean = false;
       let found_vertex: Vertex;
+      let backup: Vertex;
       while (queue.length > 0) {
         const vertex: Vertex = queue.shift();
-        this
-        .get_neighbors(vertex)
-        .filter((vert) => this.bound_check(vert))
-        .map((vert) => queue.push(vert));
 
+        if (!found_backup && !this.is_special_vertex_at(vertex)) {
+          backup = vertex;
+          found_backup = true;
+        }
         if (!this.is_special_vertex_at(vertex) && !this.is_wall(vertex)) {
           found_vertex = vertex;
           found = true;
           break;
         }
+        this
+        .get_neighbors(vertex)
+        .filter((vert) => this.bound_check(vert))
+        .map((vert) => queue.push(vert));
       }
 
+      // If there are no free cells, void the first cell that does not have a special vertex at it
+      // and put the vertex there.
       if (!found) {
-        this.set_void(nearest);
-        found_vertex = nearest;
+        found_vertex = backup;
+        this.set_void(backup);
       }
-      switch (v.cell_type) {
-        case CellType.Start:
-          this.start.x = found_vertex.x;
-          this.start.y = found_vertex.y;
-          break;
-        case CellType.Goal:
-          this.goal.x = found_vertex.x;
-          this.goal.y = found_vertex.y;
-          break;
-        case CellType.Intermediate:
-          const k = this.get_intermediate_index_at(found_vertex);
-          if (k.ok) {
-            this.intermediates[k.value].x = found_vertex.x;
-            this.intermediates[k.value].y = found_vertex.y;
-          }
-          break;
-      }
+
+      // Even if the vertex is not an intermediate one, the third parameter won't be used so it's
+      // safe to pass it in despite being undefined
+      this.set_special_vertex(found_vertex, v.cell_type, v.intermediate_index);
     }
   }
 
@@ -177,10 +172,10 @@ class Graph {
   get_neighbors(vertex: Vertex): Vertex[] {
     if (this.width <= 1 && this.height <= 1) { return []; }
     let neighbors = [];
-    if (vertex.x > 0)           { neighbors.push({x: vertex.x - 1, y: vertex.y}); }
     if (vertex.x < this.width - 1)  { neighbors.push({x: vertex.x + 1, y: vertex.y}); }
-    if (vertex.y > 0)           { neighbors.push({x: vertex.x, y: vertex.y - 1}); }
+    if (vertex.x > 0)           { neighbors.push({x: vertex.x - 1, y: vertex.y}); }
     if (vertex.y < this.height - 1) { neighbors.push({x: vertex.x, y: vertex.y + 1}); }
+    if (vertex.y > 0)           { neighbors.push({x: vertex.x, y: vertex.y - 1}); }
     return neighbors;
   }
 

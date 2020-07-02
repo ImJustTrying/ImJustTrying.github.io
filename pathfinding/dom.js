@@ -5,14 +5,36 @@
  * This file will hold all the "onX" functions -- e.g. onload, onclick, etc.
  * Depends on ui.ts.
  */
+var Search;
+(function (Search) {
+    Search[Search["AStar"] = 0] = "AStar";
+    Search[Search["Dijkstra"] = 1] = "Dijkstra";
+    Search[Search["BFS"] = 2] = "BFS";
+    Search[Search["DFS"] = 3] = "DFS";
+})(Search || (Search = {}));
+var Maze;
+(function (Maze) {
+    Maze[Maze["Division"] = 0] = "Division";
+    Maze[Maze["BinaryTree"] = 1] = "BinaryTree";
+    Maze[Maze["Backtracker"] = 2] = "Backtracker";
+    Maze[Maze["Kruskal"] = 3] = "Kruskal";
+    Maze[Maze["Prim"] = 4] = "Prim";
+    Maze[Maze["Wilson"] = 5] = "Wilson";
+})(Maze || (Maze = {}));
+var search_method = Search.AStar;
+var maze_generator = Maze.Division;
+// These are all the DOM functions
 function init() {
     document.fonts.ready.then(function () {
         var state = new Graph();
         ui = new UI(30, state);
-        state.set_special_vertex({ x: 0, y: 0 }, CellType.Start);
         state.set_special_vertex({
-            x: state.get_width() - 1,
-            y: state.get_height() - 1
+            x: Math.floor(state.get_width() / 4),
+            y: Math.floor(state.get_height() / 2)
+        }, CellType.Start);
+        state.set_special_vertex({
+            x: Math.floor(3 * state.get_width() / 4),
+            y: Math.floor(state.get_height() / 2)
         }, CellType.Goal);
         draw_grid();
         window.requestAnimationFrame(draw);
@@ -108,10 +130,10 @@ function enable_btn(draw_walls) {
 }
 function zoom(zoom_in) {
     if (zoom_in && ui.cell_size <= 50) {
-        ui.cell_size += 10;
+        ui.cell_size += 5;
     }
     else if (!zoom_in && ui.cell_size >= 30) {
-        ui.cell_size -= 10;
+        ui.cell_size -= 5;
     }
     resize();
     draw_grid();

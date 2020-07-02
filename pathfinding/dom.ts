@@ -6,15 +6,30 @@
  * Depends on ui.ts.
  */
 
+enum Search {
+  AStar, Dijkstra, BFS, DFS
+}
 
+enum Maze {
+  Division, BinaryTree, Backtracker, Kruskal, Prim, Wilson
+}
+
+let search_method: Search = Search.AStar;
+let maze_generator: Maze = Maze.Division;
+
+
+// These are all the DOM functions
 function init(): void {
   (document as any).fonts.ready.then(function() {
     const state = new Graph();
     ui = new UI(30, state);
-    state.set_special_vertex({x: 0, y: 0}, CellType.Start);
     state.set_special_vertex({
-      x: state.get_width() - 1,
-      y: state.get_height() - 1,
+      x: Math.floor(state.get_width() / 4),
+      y: Math.floor(state.get_height() / 2)
+    }, CellType.Start);
+    state.set_special_vertex({
+      x: Math.floor(3 * state.get_width() / 4),
+      y: Math.floor(state.get_height() / 2)
     }, CellType.Goal);
     draw_grid();
     window.requestAnimationFrame(draw);
@@ -116,9 +131,9 @@ function enable_btn(draw_walls: boolean): void {
 
 function zoom(zoom_in: boolean): void {
   if (zoom_in && ui.cell_size <= 50) {
-    ui.cell_size += 10;
+    ui.cell_size += 5;
   } else if (!zoom_in && ui.cell_size >= 30) {
-    ui.cell_size -= 10;
+    ui.cell_size -= 5;
   }
   resize();
   draw_grid();
@@ -136,7 +151,37 @@ function pathfind(): void {
   for (let i = 0; i < btns.length; i += 1) {
     btns[i].disabled = true;
   }
-  
+
+  switch (search_method) {
+    case Search.AStar:
+    case Search.BFS:
+    case Search.DFS:
+    case Search.Dijkstra:
+    default:
+  }
+
+  // Re-enable buttons
+  for (let i = 0; i < btns.length; i += 1) {
+    btns[i].disabled = false;
+  }
+}
+
+function gen_maze(): void {
+  // Disable all buttons while pathfinding
+  const btns = document.getElementsByTagName("button")
+  for (let i = 0; i < btns.length; i += 1) {
+    btns[i].disabled = true;
+  }
+
+  switch (maze_generator) {
+    case Maze.Division:
+    case Maze.BinaryTree:
+    case Maze.Backtracker:
+    case Maze.Kruskal:
+    case Maze.Prim:
+    case Maze.Wilson:
+    default:
+  }
 
   // Re-enable buttons
   for (let i = 0; i < btns.length; i += 1) {

@@ -9,21 +9,11 @@
  * Depends on graph.ts.
  */
 
-enum Search {
-  AStar, Dijkstra, BFS, DFS
-}
-
-enum Maze {
-  Division, BinaryTree, Backtracker, Kruskal, Prim, Wilson
-}
-
 
 let ui: UI;
 let avg_draw_time: number = 0; // In milliseconds
 let draw_calls: number = 0;
 let last_draw_count: number = 0;
-let search_method: Search = Search.AStar;
-let maze_generator: Maze = Maze.Division;
 // first value determines if editing (i.e. drawing/erasing walls) is enabled, the second
 // whether walls are being drawn (true) or erased (false).
 let editing: [boolean, boolean] = [false, true];
@@ -126,6 +116,7 @@ function draw(timestamp: number): void {
   };
 
 
+  ctx.fillStyle = "white";
   ctx.textBaseline = "bottom";
   ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
   ui.clear();
@@ -194,7 +185,6 @@ class UI {
     this.drag = [false, {x:-1,y:-1}];
 
     this.resize();
-    this.ctx.fillStyle = "white";
 
     // We add some event listeners for dragging and dropping icons.
     // Note that these only updated the dragging variable -- the actual drawing is done in draw().
@@ -280,6 +270,9 @@ class UI {
         }
 
         if (this.event_listener_exists && !drag[0]) {
+          // Set ui.drag[1] to an invalid cell so that the moved vertex will be drawn should it be
+          // placed in the same cell it was grabbed from.
+          drag[1] = { x: -1, y: -1 };
           this.removeEventListener("mousemove", update_mouse_coords);
           this.event_listener_exists = false;
           window.requestAnimationFrame(draw);

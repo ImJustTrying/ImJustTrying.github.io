@@ -8,28 +8,10 @@
  * that are drawn only once; the other is the foreground where icons and walls are drawn.
  * Depends on graph.ts.
  */
-var Search;
-(function (Search) {
-    Search[Search["AStar"] = 0] = "AStar";
-    Search[Search["Dijkstra"] = 1] = "Dijkstra";
-    Search[Search["BFS"] = 2] = "BFS";
-    Search[Search["DFS"] = 3] = "DFS";
-})(Search || (Search = {}));
-var Maze;
-(function (Maze) {
-    Maze[Maze["Division"] = 0] = "Division";
-    Maze[Maze["BinaryTree"] = 1] = "BinaryTree";
-    Maze[Maze["Backtracker"] = 2] = "Backtracker";
-    Maze[Maze["Kruskal"] = 3] = "Kruskal";
-    Maze[Maze["Prim"] = 4] = "Prim";
-    Maze[Maze["Wilson"] = 5] = "Wilson";
-})(Maze || (Maze = {}));
 var ui;
 var avg_draw_time = 0; // In milliseconds
 var draw_calls = 0;
 var last_draw_count = 0;
-var search_method = Search.AStar;
-var maze_generator = Maze.Division;
 // first value determines if editing (i.e. drawing/erasing walls) is enabled, the second
 // whether walls are being drawn (true) or erased (false).
 var editing = [false, true];
@@ -113,6 +95,7 @@ function draw(timestamp) {
         x: (mouse.x - mouse.x % cellsize) / cellsize,
         y: (mouse.y - mouse.y % cellsize) / cellsize
     };
+    ctx.fillStyle = "white";
     ctx.textBaseline = "bottom";
     ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
     ui.clear();
@@ -164,7 +147,6 @@ var UI = /** @class */ (function () {
         this.ctx = this.foreground.getContext("2d");
         this.drag = [false, { x: -1, y: -1 }];
         this.resize();
-        this.ctx.fillStyle = "white";
         // We add some event listeners for dragging and dropping icons.
         // Note that these only updated the dragging variable -- the actual drawing is done in draw().
         var drag = this.drag;
@@ -230,6 +212,9 @@ var UI = /** @class */ (function () {
                     drag[0] = !state.set_special_vertex(cell_coord, drag[1].cell_type);
                 }
                 if (this.event_listener_exists && !drag[0]) {
+                    // Set ui.drag[1] to an invalid cell so that the moved vertex will be drawn should it be
+                    // placed in the same cell it was grabbed from.
+                    drag[1] = { x: -1, y: -1 };
                     this.removeEventListener("mousemove", update_mouse_coords);
                     this.event_listener_exists = false;
                     window.requestAnimationFrame(draw);

@@ -19,6 +19,11 @@ interface Vertex {
   intermediate_index?: number;
 }
 
+interface Wall {
+  wall: boolean;
+  visited: boolean;
+}
+
 interface Option<T> {
   ok: boolean;
   value?: T;
@@ -27,6 +32,14 @@ interface Option<T> {
 
 function vertices_equal(v1: Vertex, v2: Vertex): boolean {
   return v1.x === v2.x && v1.y === v2.y;
+}
+
+// Generates integers in the range [lower, higher). Copied off of MDN:
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+function gen_random_int(lower: number, higher: number): number {
+  const min: number = Math.ceil(lower);
+  const max: number = Math.floor(higher);
+  return Math.floor(Math.random() * (max - min)) + min;
 }
 
 
@@ -43,7 +56,7 @@ class Graph {
   private start: Vertex;
   private goal: Vertex;
   private intermediates: [Vertex, Vertex, Vertex];
-  private walls: object;
+  private walls: Wall[];
   private width: number;
   private height: number;
 
@@ -169,13 +182,23 @@ class Graph {
     return { ok: false, err: "No intermediate node at that position" };
   }
 
-  get_neighbors(vertex: Vertex): Vertex[] {
+  get_neighbors(vertex: Vertex, shuffle: boolean = false): Vertex[] {
     if (this.width <= 1 && this.height <= 1) { return []; }
     let neighbors = [];
     if (vertex.x < this.width - 1)  { neighbors.push({x: vertex.x + 1, y: vertex.y}); }
     if (vertex.x > 0)           { neighbors.push({x: vertex.x - 1, y: vertex.y}); }
     if (vertex.y < this.height - 1) { neighbors.push({x: vertex.x, y: vertex.y + 1}); }
     if (vertex.y > 0)           { neighbors.push({x: vertex.x, y: vertex.y - 1}); }
+
+    if (shuffle) {
+      // Shuffle the list of neighbors for the sake of the maze generation algorithms
+      for (let i = 0; i < neighbors.length; i += 1) {
+        const k: number = gen_random_int(i, neighbors.length);
+        const t: Vertex = neighbors[i];
+        neighbors[i] = neighbors[k];
+        neighbors[k] = t;
+      }
+    }
     return neighbors;
   }
 
@@ -273,9 +296,9 @@ class Graph {
   flip_wall_status(v: Vertex): void {
     const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
     if (this.walls[key] === undefined) {
-      this.walls[key] = true;
+      this.walls[key] = { wall: true, visited: false };
     } else {
-      this.walls[key] = undefined;
+      this.walls[key].wall = false;
     }
   }
 
@@ -283,7 +306,9 @@ class Graph {
     if (this.bound_check(v)) {
       const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
       if (this.walls[key] === undefined) {
-        this.walls[key] = true;
+        this.walls[key] = { wall: true, visited: false };
+      } else {
+        this.walls[key].wall = true;
       }
     }
   }
@@ -291,17 +316,18 @@ class Graph {
   set_void(v: Vertex): void {
     if (this.bound_check(v)) {
       const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
-      if (this.walls[key] !== undefined) {
-        this.walls[key] = undefined;
+      if (this.walls[key] === undefined) {
+        this.walls[key] = { wall: false, visited: false };
+      } else {
+        this.walls[key].wall = false;
       }
     }
   }
- 
 
   get_walls(): Vertex[] {
     const walls = [];
     for (const key of Object.keys(this.walls)) {
-      if (this.walls[key] !== undefined) {
+      if (this.walls[key] !== undefined && this.walls[key].wall) {
         walls.push({ x: parseInt(key.substr(0, 3)), y : parseInt(key.substr(3, 3)) });
       }
     }
@@ -310,14 +336,37 @@ class Graph {
 
   clear_walls(): void {
     for (const key of Object.keys(this.walls)) {
-      if (this.walls[key] !== undefined) {
-        this.walls[key] = undefined;
+      if (this.walls[key]) {
+        this.walls[key].wall = false;
       }
     }
   }
 
   is_wall(v: Vertex): boolean {
     const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
-    return this.walls[key] !== undefined;
+    return this.walls[key] !== undefined && this.walls[key].wall;
+  }
+
+  mark_visited(v: Vertex): void {
+    const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+    if (this.walls[key] !== undefined) {
+      this.walls[key].visited = true;
+    } else {
+      this.walls[key] = { wall: false, visited
+  }
+
+  was_visited(v: Vertex): boolean {
+    const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+    if (this.walls[key] !== undefined) {
+      return this.walls[key].visited;
+    } return false;
+  }
+
+  clear_visited(): void {
+    for (const key of Object.keys(this.walls)) {
+      if (this.walls[key]) {
+        this.walls[key] = false;
+      }
+    }
   }
 }

@@ -173,15 +173,20 @@ function gen_maze(): void {
     btns[i].disabled = true;
   }
 
+  clear_grid();
+  ui.state.set_special_vertex({ x: 0, y: 0 }, CellType.Start);
   switch (maze_generator) {
     case Maze.Division:
     case Maze.BinaryTree:
     case Maze.Backtracker:
+      ui.state.set_special_vertex(recursive_backtracker(), CellType.Goal);
+      break;
     case Maze.Kruskal:
     case Maze.Prim:
     case Maze.Wilson:
-    default:
   }
+  window.requestAnimationFrame(draw);
+  window.requestAnimationFrame(draw_maze);
 
   // Re-enable buttons
   for (let i = 0; i < btns.length; i += 1) {

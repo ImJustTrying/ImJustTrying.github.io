@@ -14,4 +14,45 @@
  * given point in time during execution.
  */
 
+const draw_queue: Vertex[] = [];
 
+function draw_maze(timestamp: number): void {
+
+}
+
+function draw_path(timestamp: number): void {
+
+}
+
+function recursive_backtracker(): Vertex {
+  // Fill the entire graph with walls
+  const width: number = ui.state.get_width();
+  const height: number = ui.state.get_height();
+  for (let x = 0; x < width; x += 1) {
+    for (let y = 0; y < height; y += 1) {
+      if (x === 0 && y === 0) { continue; }
+      ui.state.set_wall({x:x, y:y});
+    }
+  }
+  window.requestAnimationFrame(
+
+  const initial: Vertex = {x: 0, y: 0};
+  const stack: Vertex[] = [initial];
+
+  while (stack.length > 0) {
+    const current: Vertex = stack.pop();
+    const neighbors: Vertex[] =
+      ui.state
+      .get_neighbors(current, true)
+      .filter((v) => !ui.state.was_visited(v));
+
+    if (neighbors.length > 0) {
+      stack.push(current);
+      ui.state.set_void(neighbors[0]);
+      ui.state.mark_visited(neighbors[0]);
+      stack.push(neighbors[0]);
+    }
+  }
+
+  
+}

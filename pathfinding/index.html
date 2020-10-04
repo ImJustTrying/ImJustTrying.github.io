@@ -9,6 +9,7 @@
 
     <script src="js/graph.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/maze_search.js"></script>
     <script src="js/dom.js"></script>
   </head>
 
@@ -16,23 +17,20 @@
     <header>
       <label for="search">Search algorithm:</label>
       <select id="search" onchange="update_search()">
+        <option value="bfs" selected>Breadth first search</option>
         <option value="astar">A* search</option>
-        <option value="dijkstra">Dijkstra's algorithm</option>
-        <option value="bfs">Breadth first search</option>
-        <option value="dfs">Depth first search</option>
+        <option value="ucs">Uniform cost search</option>
+        <option value="gs">Greedy search</option>
       </select>
 
       <label for="maze">Maze algorithm:</label>
       <select id="maze" onchange="update_maze()">
         <option value="rediv">Recursive division</option>
-        <option value="binary">Binary tree method</option>
         <option value="reback">Recursive backtracker</option>
         <option value="kruskal">Randomized Kruskal's algorithm</option>
-        <option value="prim">Randomized Prim's algorithm</option>
-        <option value="wilson">Wilson's algorithm</option>
       </select>
       <button onclick="pathfind()">Find path</button>
-      <button onclick="gen_maze()">Generate maze</button>
+      <button onclick="gen_maze()" class="disabled_style" disabled>Generate maze</button>
       <button onclick="clear_grid()">Clear grid</button>
     </header>
 
@@ -43,20 +41,26 @@
       <button id="write" class="enabled" onclick="enable_btn(true)">
         <i class="fas fa-pencil-alt"></i>
       </button>
-      <button id="erase" class="disabled" onclick="enable_btn(false)">
+      <button id="erase" class="disabled_color" onclick="enable_btn(false)">
         <i class="fas fa-eraser"></i>
       </button>
-      <button class="disabled" onclick="zoom(false)">
+      <button class="disabled_color" onclick="zoom(false)">
         <i class="fas fa-search-minus"></i>
       </button>
-      <button class="disabled" onclick="zoom(true)">
+      <button class="disabled_color" onclick="zoom(true)">
         <i class="fas fa-search-plus"></i>
       </button>
-      <button class="disabled" style="padding-left: 15px;" onclick="intermediates(true)">
+      <button class="disabled_color disabled_style" style="padding-left: 15px;" onclick="intermediates(true)" disabled>
         +<i style="display: inline; padding-left: 3px" class="fas fa-chevron-right"></i>
       </button>
-      <button class="disabled"style="padding-left: 15px;" onclick="intermediates(false)">
+      <button class="disabled_color disabled_style" style="padding-left: 15px;" onclick="intermediates(false)" disabled>
         -<i style="display: inline; padding-left: 5px" class="fas fa-chevron-right"></i>
+      </button>
+      <button class="disabled_color" onclick="change_speed(Infinity)">
+        <i class="fas fa-fast-forward"></i>
+      </button>
+      <button class="disabled_color" onclick="change_speed(draw_frequency / 2)">
+        <i class="fas fa-step-forward"></i>
       </button>
     </div>
 

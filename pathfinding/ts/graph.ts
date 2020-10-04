@@ -22,6 +22,7 @@ interface Vertex {
 interface Wall {
   wall: boolean;
   visited: boolean;
+  marked: boolean;
 }
 
 interface Option<T> {
@@ -30,16 +31,93 @@ interface Option<T> {
   err?: string;
 }
 
+
+// Priority queue implementation for the graph search algorithms
+class QElem {
+  public element: any;
+  public priority: number;
+  public cost: number;
+
+  constructor(elem: any, prio: number, cost: number) {
+    this.element = elem;
+    this.priority = prio;
+    this.cost = cost;
+  }
+}
+
+// We remove lowest priority elements first in this implementation
+// We also use a sorted list rather than a heap
+class PriorityQueue {
+  private queue: QElem[];
+
+  constructor(elements: QElem[] = []) {
+    this.queue = [];
+    elements.map((e) => this.enqueue(e.element, e.priority, e.cost));
+  }
+
+  enqueue(elem: any, prio: number, cost: number): void {
+    if (this.queue.length === 0) {
+      this.queue.push(new QElem(elem, prio, cost));
+      return;
+    }
+
+    // Since we are using a sorted list, we can do binary search to maintain the O(log n) runtime
+    let left_index: number = 0;
+    let right_index: number = this.queue.length - 1;
+    let middle: number = Math.floor((right_index - left_index) / 2);
+
+    while (right_index - left_index >= 1) {
+      if (prio > this.queue[middle].priority) {
+        left_index = middle + 1;
+      } else {
+        right_index = middle;
+      }
+      middle = left_index + Math.floor((right_index - left_index) / 2);
+    }
+
+    if (prio > this.queue[middle].priority) {
+      this.queue.splice(middle + 1, 0, new QElem(elem, prio, cost));
+    } else {
+      this.queue.splice(middle, 0, new QElem(elem, prio, cost));
+    }
+  }
+
+  dequeue(): Option<QElem> {
+    if (this.queue.length != 0) {
+      return { ok: true, value: this.queue.shift() };
+    } else {
+      return { ok: false, err: "Underflow" };
+    }
+  }
+
+  is_empty(): boolean {
+    return this.queue.length === 0;
+  }
+}
+
+
+// Helper functions
 function vertices_equal(v1: Vertex, v2: Vertex): boolean {
   return v1.x === v2.x && v1.y === v2.y;
 }
 
-// Generates integers in the range [lower, higher). Copied off of MDN:
+// Generates integers in the range [lower, higher), excluding any values in exclude. MDN reference:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
-function gen_random_int(lower: number, higher: number): number {
+function gen_random_int(lower: number, higher: number, exclude: number[] = []): Option<number> {
   const min: number = Math.ceil(lower);
   const max: number = Math.floor(higher);
-  return Math.floor(Math.random() * (max - min)) + min;
+  const valid_values: number[] = [];
+  for (let i = min; i < max; i += 1) {
+    if (!exclude.includes(i)) {
+      valid_values.push(i);
+    }
+  }
+  
+  if (valid_values.length === 0) {
+    return { ok: false, err: "All numbers in range are excluded" };
+  } else {
+    return { ok: true, value: valid_values[Math.floor(Math.random() * valid_values.length)] };
+  }
 }
 
 
@@ -56,7 +134,7 @@ class Graph {
   private start: Vertex;
   private goal: Vertex;
   private intermediates: [Vertex, Vertex, Vertex];
-  private walls: Wall[];
+  private walls: object;
   private width: number;
   private height: number;
 
@@ -192,8 +270,8 @@ class Graph {
 
     if (shuffle) {
       // Shuffle the list of neighbors for the sake of the maze generation algorithms
-      for (let i = 0; i < neighbors.length; i += 1) {
-        const k: number = gen_random_int(i, neighbors.length);
+      for (let i = 0; i < neighbors.length - 1; i += 1) {
+        const k: number = gen_random_int(i, neighbors.length).value;
         const t: Vertex = neighbors[i];
         neighbors[i] = neighbors[k];
         neighbors[k] = t;
@@ -224,7 +302,7 @@ class Graph {
   }
 
 
-  get_special_vertex(cell_type: CellType, intermediate_index: number = 0): any {
+  get_special_vertex(cell_type: CellType, intermediate_index: number = 0): Vertex {
     switch (cell_type) {
       case CellType.Start: return this.start;
       case CellType.Goal: return this.goal;
@@ -291,12 +369,19 @@ class Graph {
     return false;
   }
 
+  clear_intermediates(): void {
+    for (let i = 0; i < 3; i += 1) {
+      this.intermediates[i].x = -1;
+      this.intermediates[i].y = -1;
+    }
+  }
+
   // Here, we just create a key that is unique to the given vertex, then check if the value in
   // the walls object is undefined or not
   flip_wall_status(v: Vertex): void {
     const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
     if (this.walls[key] === undefined) {
-      this.walls[key] = { wall: true, visited: false };
+      this.walls[key] = { wall: true, visited: false, marked: false };
     } else {
       this.walls[key].wall = false;
     }
@@ -327,7 +412,7 @@ class Graph {
   get_walls(): Vertex[] {
     const walls = [];
     for (const key of Object.keys(this.walls)) {
-      if (this.walls[key] !== undefined && this.walls[key].wall) {
+      if (this.walls[key].wall) {
         walls.push({ x: parseInt(key.substr(0, 3)), y : parseInt(key.substr(3, 3)) });
       }
     }
@@ -336,7 +421,7 @@ class Graph {
 
   clear_walls(): void {
     for (const key of Object.keys(this.walls)) {
-      if (this.walls[key]) {
+      if (this.walls[key].wall) {
         this.walls[key].wall = false;
       }
     }
@@ -347,12 +432,13 @@ class Graph {
     return this.walls[key] !== undefined && this.walls[key].wall;
   }
 
-  mark_visited(v: Vertex): void {
+  set_visited(v: Vertex): void {
     const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
     if (this.walls[key] !== undefined) {
       this.walls[key].visited = true;
     } else {
-      this.walls[key] = { wall: false, visited
+      this.walls[key] = { wall: false, visited: true, marked: false };
+    }
   }
 
   was_visited(v: Vertex): boolean {
@@ -364,9 +450,29 @@ class Graph {
 
   clear_visited(): void {
     for (const key of Object.keys(this.walls)) {
-      if (this.walls[key]) {
-        this.walls[key] = false;
-      }
+      this.walls[key].visited = false;
+    }
+  }
+
+  is_marked(v: Vertex): boolean {
+    const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+    if (this.walls[key] !== undefined) {
+      return this.walls[key].marked;
+    } return false;
+  }
+
+  set_marked(v: Vertex): void {
+    const key: string = v.x.toPrecision(3) + v.y.toPrecision(3);
+    if (this.walls[key] === undefined) {
+      this.walls[key] = { wall: false, visited: false, marked: true };
+    } else {
+      this.walls[key].marked = true;
+    }
+  }
+
+  clear_marked(): void {
+    for (const key of Object.keys(this.walls)) {
+      this.walls[key].marked = false;
     }
   }
 }

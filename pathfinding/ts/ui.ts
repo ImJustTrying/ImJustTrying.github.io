@@ -100,29 +100,14 @@ function draw_grid(): void {
   ctx.restore();
 }
 
-function draw(timestamp: number): void {
-  if (ui.drag[0]) {
-    window.requestAnimationFrame(draw);
-  }
-
-  const start_time = performance.now();
+function draw_icons(): void {
   const ctx = ui.ctx;
   const cellsize: number = ui.cell_size;
   const vertices: Vertex[] = ui.state.get_special_vertices_copy();
-  // Corresponds to the cell that the mouse is bounded by
-  const cell_coord = {
-    x : (mouse.x - mouse.x % cellsize) / cellsize,
-    y : (mouse.y - mouse.y % cellsize) / cellsize
-  };
-
 
   ctx.fillStyle = "white";
   ctx.textBaseline = "bottom";
   ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
-  ui.clear();
-  // If the mouse exits the grid, draw the 
-  if (cell_coord.x >= ui.state.get_width()) { cell_coord.x = ui.state.get_width() - 1; }
-  if (cell_coord.y >= ui.state.get_height()) { cell_coord.y = ui.state.get_height() - 1; }
 
   // Draw icons for special vertices
   if (ui.drag[0]) {
@@ -149,6 +134,11 @@ function draw(timestamp: number): void {
       }
     }
   }
+}
+
+function draw_walls(): void {
+  const ctx = ui.ctx;
+  const cellsize: number = ui.cell_size;
 
   // Draw walls
   ctx.fillStyle = "#fff";
@@ -157,7 +147,17 @@ function draw(timestamp: number): void {
       ctx.fillRect(v.x * cellsize, v.y * cellsize, cellsize, cellsize);
     }
   }
+}
 
+function draw(timestamp: number = 0): void {
+  if (ui.drag[0]) {
+    window.requestAnimationFrame(draw);
+  }
+
+  const start_time = performance.now();
+  ui.clear();
+  draw_walls();
+  draw_icons();
   avg_draw_time = (avg_draw_time * draw_calls + performance.now() - start_time) / (draw_calls + 1);
   draw_calls += 1;
 }

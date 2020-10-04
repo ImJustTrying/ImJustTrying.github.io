@@ -8,9 +8,9 @@
 var Search;
 (function (Search) {
     Search[Search["AStar"] = 0] = "AStar";
-    Search[Search["Dijkstra"] = 1] = "Dijkstra";
+    Search[Search["UCS"] = 1] = "UCS";
     Search[Search["BFS"] = 2] = "BFS";
-    Search[Search["DFS"] = 3] = "DFS";
+    Search[Search["GS"] = 3] = "GS";
 })(Search || (Search = {}));
 var Maze;
 (function (Maze) {
@@ -23,6 +23,7 @@ var Maze;
 })(Maze || (Maze = {}));
 var search_method = Search.AStar;
 var maze_generator = Maze.Division;
+var draw_frequency = 1000;
 // These are all the DOM functions
 function init() {
     document.fonts.ready.then(function () {
@@ -59,16 +60,16 @@ function update_search() {
             search_method = Search.AStar;
             break;
         }
-        case "dijkstra": {
-            search_method = Search.Dijkstra;
+        case "ucs": {
+            search_method = Search.UCS;
             break;
         }
         case "bfs": {
             search_method = Search.BFS;
             break;
         }
-        case "dfs": {
-            search_method = Search.DFS;
+        case "gs": {
+            search_method = Search.GS;
             break;
         }
     }
@@ -144,11 +145,63 @@ function clear_grid() {
     window.requestAnimationFrame(draw);
 }
 function pathfind() {
+    function manhattan_distance(v1, v2) {
+        return Math.abs(v1.y - v2.y) + Math.abs(v1.x - v2.x);
+    }
     // Disable all buttons while pathfinding
     var btns = document.getElementsByTagName("button");
     for (var i = 0; i < btns.length; i += 1) {
         btns[i].disabled = true;
     }
+    switch (search_method) {
+        case Search.BFS:
+            bfs();
+            break;
+        case Search.GS:
+            best_first_search(function (state, net_cost) {
+                return manhattan_distance(state, ui.state.get_special_vertex(CellType.Goal));
+            });
+            break;
+        case Search.UCS:
+            best_first_search(function (state, net_cost) {
+                return net_cost + 1;
+            });
+            break;
+        case Search.AStar:
+            best_first_search(function (state, net_cost) {
+                return (net_cost + 1) +
+                    manhattan_distance(state, ui.state.get_special_vertex(CellType.Goal));
+            });
+            break;
+    }
+    // Re-enable buttons
+    for (var i = 0; i < btns.length; i += 1) {
+        btns[i].disabled = false;
+    }
+}
+function gen_maze() {
+    // Disable all buttons while pathfinding
+    var btns = document.getElementsByTagName("button");
+    for (var i = 0; i < btns.length; i += 1) {
+        btns[i].disabled = true;
+    }
+    clear_grid();
+    ui.state.clear_intermediates();
+    ui.state.set_special_vertex({ x: 0, y: 0 }, CellType.Start);
+    switch (maze_generator) {
+        case Maze.Division:
+            recursive_division();
+            break;
+        case Maze.Backtracker:
+            recursive_backtracker();
+            break;
+        case Maze.Kruskal:
+            randomized_kruskal();
+            break;
+    }
+    ui.state.set_special_vertex(get_goal(), CellType.Goal);
+    window.requestAnimationFrame(draw);
+    //window.requestAnimationFrame(draw_maze);
     // Re-enable buttons
     for (var i = 0; i < btns.length; i += 1) {
         btns[i].disabled = false;
@@ -162,4 +215,15 @@ function intermediates(add) {
         ui.state.remove_intermediate();
     }
     window.requestAnimationFrame(draw);
+}
+// Rate is in KHz
+function change_speed(rate) {
+    if (rate === Infinity) {
+        draw_frequency = 100;
+    }
+    else {
+        draw_frequency = (rate < 100) ? 100 : rate;
+    }
+    clearInterval(set_interval_id);
+    set_interval_id = setInterval(draw_path, draw_frequency);
 }

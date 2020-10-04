@@ -82,30 +82,13 @@ function draw_grid() {
     ctx.stroke();
     ctx.restore();
 }
-function draw(timestamp) {
-    if (ui.drag[0]) {
-        window.requestAnimationFrame(draw);
-    }
-    var start_time = performance.now();
+function draw_icons() {
     var ctx = ui.ctx;
     var cellsize = ui.cell_size;
     var vertices = ui.state.get_special_vertices_copy();
-    // Corresponds to the cell that the mouse is bounded by
-    var cell_coord = {
-        x: (mouse.x - mouse.x % cellsize) / cellsize,
-        y: (mouse.y - mouse.y % cellsize) / cellsize
-    };
     ctx.fillStyle = "white";
     ctx.textBaseline = "bottom";
     ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
-    ui.clear();
-    // If the mouse exits the grid, draw the 
-    if (cell_coord.x >= ui.state.get_width()) {
-        cell_coord.x = ui.state.get_width() - 1;
-    }
-    if (cell_coord.y >= ui.state.get_height()) {
-        cell_coord.y = ui.state.get_height() - 1;
-    }
     // Draw icons for special vertices
     if (ui.drag[0]) {
         ctx.textBaseline = "middle";
@@ -127,14 +110,28 @@ function draw(timestamp) {
             }
         }
     }
+}
+function draw_walls() {
+    var ctx = ui.ctx;
+    var cellsize = ui.cell_size;
     // Draw walls
     ctx.fillStyle = "#fff";
-    for (var _a = 0, _b = ui.state.get_walls(); _a < _b.length; _a++) {
-        var v = _b[_a];
+    for (var _i = 0, _a = ui.state.get_walls(); _i < _a.length; _i++) {
+        var v = _a[_i];
         if (ui.state.bound_check(v)) {
             ctx.fillRect(v.x * cellsize, v.y * cellsize, cellsize, cellsize);
         }
     }
+}
+function draw(timestamp) {
+    if (timestamp === void 0) { timestamp = 0; }
+    if (ui.drag[0]) {
+        window.requestAnimationFrame(draw);
+    }
+    var start_time = performance.now();
+    ui.clear();
+    draw_walls();
+    draw_icons();
     avg_draw_time = (avg_draw_time * draw_calls + performance.now() - start_time) / (draw_calls + 1);
     draw_calls += 1;
 }

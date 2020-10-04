@@ -12,8 +12,84 @@ var CellType;
     CellType[CellType["Goal"] = 1] = "Goal";
     CellType[CellType["Intermediate"] = 2] = "Intermediate";
 })(CellType || (CellType = {}));
+// Priority queue implementation for the graph search algorithms
+var QElem = /** @class */ (function () {
+    function QElem(elem, prio, cost) {
+        this.element = elem;
+        this.priority = prio;
+        this.cost = cost;
+    }
+    return QElem;
+}());
+// We remove lowest priority elements first in this implementation
+// We also use a sorted list rather than a heap
+var PriorityQueue = /** @class */ (function () {
+    function PriorityQueue(elements) {
+        var _this = this;
+        if (elements === void 0) { elements = []; }
+        this.queue = [];
+        elements.map(function (e) { return _this.enqueue(e.element, e.priority, e.cost); });
+    }
+    PriorityQueue.prototype.enqueue = function (elem, prio, cost) {
+        if (this.queue.length === 0) {
+            this.queue.push(new QElem(elem, prio, cost));
+            return;
+        }
+        // Since we are using a sorted list, we can do binary search to maintain the O(log n) runtime
+        var left_index = 0;
+        var right_index = this.queue.length - 1;
+        var middle = Math.floor((right_index - left_index) / 2);
+        while (right_index - left_index >= 1) {
+            if (prio > this.queue[middle].priority) {
+                left_index = middle + 1;
+            }
+            else {
+                right_index = middle;
+            }
+            middle = left_index + Math.floor((right_index - left_index) / 2);
+        }
+        if (prio > this.queue[middle].priority) {
+            this.queue.splice(middle + 1, 0, new QElem(elem, prio, cost));
+        }
+        else {
+            this.queue.splice(middle, 0, new QElem(elem, prio, cost));
+        }
+    };
+    PriorityQueue.prototype.dequeue = function () {
+        if (this.queue.length != 0) {
+            return { ok: true, value: this.queue.shift() };
+        }
+        else {
+            return { ok: false, err: "Underflow" };
+        }
+    };
+    PriorityQueue.prototype.is_empty = function () {
+        return this.queue.length === 0;
+    };
+    return PriorityQueue;
+}());
+// Helper functions
 function vertices_equal(v1, v2) {
     return v1.x === v2.x && v1.y === v2.y;
+}
+// Generates integers in the range [lower, higher), excluding any values in exclude. MDN reference:
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+function gen_random_int(lower, higher, exclude) {
+    if (exclude === void 0) { exclude = []; }
+    var min = Math.ceil(lower);
+    var max = Math.floor(higher);
+    var valid_values = [];
+    for (var i = min; i < max; i += 1) {
+        if (!exclude.includes(i)) {
+            valid_values.push(i);
+        }
+    }
+    if (valid_values.length === 0) {
+        return { ok: false, err: "All numbers in range are excluded" };
+    }
+    else {
+        return { ok: true, value: valid_values[Math.floor(Math.random() * valid_values.length)] };
+    }
 }
 /*
  * Because our graph is very well defined, we don't need to represent it with traditional methods
@@ -140,7 +216,8 @@ var Graph = /** @class */ (function () {
         }
         return { ok: false, err: "No intermediate node at that position" };
     };
-    Graph.prototype.get_neighbors = function (vertex) {
+    Graph.prototype.get_neighbors = function (vertex, shuffle) {
+        if (shuffle === void 0) { shuffle = false; }
         if (this.width <= 1 && this.height <= 1) {
             return [];
         }
@@ -156,6 +233,15 @@ var Graph = /** @class */ (function () {
         }
         if (vertex.y > 0) {
             neighbors.push({ x: vertex.x, y: vertex.y - 1 });
+        }
+        if (shuffle) {
+            // Shuffle the list of neighbors for the sake of the maze generation algorithms
+            for (var i = 0; i < neighbors.length - 1; i += 1) {
+                var k = gen_random_int(i, neighbors.length).value;
+                var t = neighbors[i];
+                neighbors[i] = neighbors[k];
+                neighbors[k] = t;
+            }
         }
         return neighbors;
     };
@@ -242,30 +328,42 @@ var Graph = /** @class */ (function () {
         }
         return false;
     };
+    Graph.prototype.clear_intermediates = function () {
+        for (var i = 0; i < 3; i += 1) {
+            this.intermediates[i].x = -1;
+            this.intermediates[i].y = -1;
+        }
+    };
     // Here, we just create a key that is unique to the given vertex, then check if the value in
     // the walls object is undefined or not
     Graph.prototype.flip_wall_status = function (v) {
         var key = v.x.toPrecision(3) + v.y.toPrecision(3);
         if (this.walls[key] === undefined) {
-            this.walls[key] = true;
+            this.walls[key] = { wall: true, visited: false, marked: false };
         }
         else {
-            this.walls[key] = undefined;
+            this.walls[key].wall = false;
         }
     };
     Graph.prototype.set_wall = function (v) {
         if (this.bound_check(v)) {
             var key = v.x.toPrecision(3) + v.y.toPrecision(3);
             if (this.walls[key] === undefined) {
-                this.walls[key] = true;
+                this.walls[key] = { wall: true, visited: false };
+            }
+            else {
+                this.walls[key].wall = true;
             }
         }
     };
     Graph.prototype.set_void = function (v) {
         if (this.bound_check(v)) {
             var key = v.x.toPrecision(3) + v.y.toPrecision(3);
-            if (this.walls[key] !== undefined) {
-                this.walls[key] = undefined;
+            if (this.walls[key] === undefined) {
+                this.walls[key] = { wall: false, visited: false };
+            }
+            else {
+                this.walls[key].wall = false;
             }
         }
     };
@@ -273,7 +371,7 @@ var Graph = /** @class */ (function () {
         var walls = [];
         for (var _i = 0, _a = Object.keys(this.walls); _i < _a.length; _i++) {
             var key = _a[_i];
-            if (this.walls[key] !== undefined) {
+            if (this.walls[key].wall) {
                 walls.push({ x: parseInt(key.substr(0, 3)), y: parseInt(key.substr(3, 3)) });
             }
         }
@@ -282,14 +380,58 @@ var Graph = /** @class */ (function () {
     Graph.prototype.clear_walls = function () {
         for (var _i = 0, _a = Object.keys(this.walls); _i < _a.length; _i++) {
             var key = _a[_i];
-            if (this.walls[key] !== undefined) {
-                this.walls[key] = undefined;
+            if (this.walls[key].wall) {
+                this.walls[key].wall = false;
             }
         }
     };
     Graph.prototype.is_wall = function (v) {
         var key = v.x.toPrecision(3) + v.y.toPrecision(3);
-        return this.walls[key] !== undefined;
+        return this.walls[key] !== undefined && this.walls[key].wall;
+    };
+    Graph.prototype.set_visited = function (v) {
+        var key = v.x.toPrecision(3) + v.y.toPrecision(3);
+        if (this.walls[key] !== undefined) {
+            this.walls[key].visited = true;
+        }
+        else {
+            this.walls[key] = { wall: false, visited: true, marked: false };
+        }
+    };
+    Graph.prototype.was_visited = function (v) {
+        var key = v.x.toPrecision(3) + v.y.toPrecision(3);
+        if (this.walls[key] !== undefined) {
+            return this.walls[key].visited;
+        }
+        return false;
+    };
+    Graph.prototype.clear_visited = function () {
+        for (var _i = 0, _a = Object.keys(this.walls); _i < _a.length; _i++) {
+            var key = _a[_i];
+            this.walls[key].visited = false;
+        }
+    };
+    Graph.prototype.is_marked = function (v) {
+        var key = v.x.toPrecision(3) + v.y.toPrecision(3);
+        if (this.walls[key] !== undefined) {
+            return this.walls[key].marked;
+        }
+        return false;
+    };
+    Graph.prototype.set_marked = function (v) {
+        var key = v.x.toPrecision(3) + v.y.toPrecision(3);
+        if (this.walls[key] === undefined) {
+            this.walls[key] = { wall: false, visited: false, marked: true };
+        }
+        else {
+            this.walls[key].marked = true;
+        }
+    };
+    Graph.prototype.clear_marked = function () {
+        for (var _i = 0, _a = Object.keys(this.walls); _i < _a.length; _i++) {
+            var key = _a[_i];
+            this.walls[key].marked = false;
+        }
     };
     return Graph;
 }());

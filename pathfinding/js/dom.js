@@ -21,9 +21,9 @@ var Maze;
     Maze[Maze["Prim"] = 4] = "Prim";
     Maze[Maze["Wilson"] = 5] = "Wilson";
 })(Maze || (Maze = {}));
-var search_method = Search.AStar;
-var maze_generator = Maze.Division;
-var draw_frequency = 1000;
+var search_method;
+var maze_generator;
+var draw_frequency = 1;
 // These are all the DOM functions
 function init() {
     document.fonts.ready.then(function () {
@@ -40,6 +40,8 @@ function init() {
         draw_grid();
         window.requestAnimationFrame(draw);
     });
+    update_search();
+    update_maze();
     setInterval(function () {
         console.debug("new draw calls: " + (draw_calls - last_draw_count));
         console.debug("draw rate: " + (draw_calls - last_draw_count) / 5 + " per second");
@@ -216,14 +218,29 @@ function intermediates(add) {
     }
     window.requestAnimationFrame(draw);
 }
-// Rate is in KHz
+// Rate is in Hz
 function change_speed(rate) {
+    var max_frequency = 10;
+    var min_frequency = 1;
     if (rate === Infinity) {
         draw_frequency = 100;
     }
-    else {
-        draw_frequency = (rate < 100) ? 100 : rate;
+    else if (rate === -Infinity) {
+        draw_frequency = 1;
     }
-    clearInterval(set_interval_id);
-    set_interval_id = setInterval(draw_path, draw_frequency);
+    else {
+        if (rate < min_frequency) {
+            draw_frequency = min_frequency;
+        }
+        else if (rate > max_frequency) {
+            draw_frequency = max_frequency;
+        }
+        else {
+            draw_frequency = rate;
+        }
+    }
+    if (set_interval_id !== undefined) {
+        clearInterval(set_interval_id);
+        set_interval_id = setInterval(draw_path, 1000 / draw_frequency);
+    }
 }

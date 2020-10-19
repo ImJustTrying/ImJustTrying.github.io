@@ -35,30 +35,24 @@ function draw_path(): void {
   const cs: number = ui.cell_size;
   if (draw_queue.length > 0) {
     const v: Vertex = draw_queue.shift();
-    if (last_vertex !== undefined) {
+    if (last_vertex !== undefined && !ui.state.is_special_vertex_at(last_vertex)) {
       // Change the color of the last drawn vertex to dark gray
       ui.ctx.fillRect(last_vertex.x * cs, last_vertex.y * cs, cs, cs);
     }
-
-    // Change the color of the newly drawn vertex to light gray
-    ui.ctx.fillStyle = "#cccccc";
-    ui.ctx.fillRect(v.x * cs, v.y * cs, cs, cs);
-    ui.ctx.fillStyle = "#8c8c8c";
-    last_vertex = v;
-
-
-    if (ui.state.is_special_vertex_at(v) || ui.state.is_special_vertex_at(last_vertex)) {
-      draw_icons();
+    if (!ui.state.is_special_vertex_at(v)) {
+      // Change the color of the newly drawn vertex to light gray
+      ui.ctx.fillStyle = "#cccccc";
+      ui.ctx.fillRect(v.x * cs, v.y * cs, cs, cs);
+      ui.ctx.fillStyle = "#8c8c8c";
     }
+    last_vertex = v;
   } else {
     // Fill the last vertex with white
     ui.ctx.fillRect(last_vertex.x * cs, last_vertex.y * cs, cs, cs);
     ui.ctx.fillStyle = "#ffffff";
     clearInterval(set_interval_id);
+    set_interval_id = undefined;
 
-    if (ui.state.is_special_vertex_at(last_vertex)) {
-      draw_icons();
-    }
     last_vertex = undefined;
   }
 }
@@ -78,7 +72,9 @@ function bfs(): void {
     if (special_vertex.ok && special_vertex.value.cell_type === CellType.Goal) {
       break;
     }
-    draw_queue.push(current);
+    if (!special_vertex.ok) {
+      draw_queue.push(current);
+    }
 
     ui.state.get_neighbors(current, true)
     .filter((v) =>
@@ -91,7 +87,7 @@ function bfs(): void {
 
   console.debug(draw_queue.length);
   draw();
-  set_interval_id = setInterval(draw_path, draw_frequency);
+  set_interval_id = setInterval(draw_path, 1000 / draw_frequency);
 }
 
 
@@ -107,10 +103,12 @@ function best_first_search(evaluation: (Vertex, number) => number): void {
   while (!frontier.is_empty()) {
     const current: QElem = frontier.dequeue().value;
     const special_vertex_opt: Option<Vertex> = ui.state.get_special_vertex_at(current.element);
-    draw_queue.push(current.element);
     ui.state.set_visited(current.element);
     if (special_vertex_opt.ok && special_vertex_opt.value.cell_type === CellType.Goal) {
       break;
+    }
+    if (!special_vertex_opt.ok) {
+      draw_queue.push(current.element);
     }
 
     ui.state.get_neighbors(current.element)
@@ -123,7 +121,7 @@ function best_first_search(evaluation: (Vertex, number) => number): void {
   }
 
   draw();
-  set_interval_id = setInterval(draw_path, draw_frequency);
+  set_interval_id = setInterval(draw_path, 1000 / draw_frequency);
 }
 
 

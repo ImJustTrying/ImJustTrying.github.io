@@ -14,9 +14,9 @@ enum Maze {
   Division, BinaryTree, Backtracker, Kruskal, Prim, Wilson
 }
 
-let search_method: Search = Search.AStar;
-let maze_generator: Maze = Maze.Division;
-let draw_frequency: number = 1000;
+let search_method: Search;
+let maze_generator: Maze;
+let draw_frequency: number = 1;
 
 // These are all the DOM functions
 function init(): void {
@@ -37,6 +37,8 @@ function init(): void {
     window.requestAnimationFrame(draw);
   });
 
+  update_search();
+  update_maze();
   setInterval(function() {
     console.debug(`new draw calls: ${draw_calls - last_draw_count}`);
     console.debug(`draw rate: ${(draw_calls - last_draw_count) / 5} per second`);
@@ -226,13 +228,23 @@ function intermediates(add: boolean) {
   window.requestAnimationFrame(draw);
 }
 
-// Rate is in KHz
+// Rate is in Hz
 function change_speed(rate: number): void {
+  const max_frequency = 10;
+  const min_frequency = 1;
+
   if (rate === Infinity) {
     draw_frequency = 100;
+  } else if (rate === -Infinity) {
+    draw_frequency = 1;
   } else {
-    draw_frequency = (rate < 100) ? 100 : rate;
+    if (rate < min_frequency) { draw_frequency = min_frequency; }
+    else if (rate > max_frequency) { draw_frequency = max_frequency; }
+    else { draw_frequency = rate; }
   }
-  clearInterval(set_interval_id);
-  set_interval_id = setInterval(draw_path, draw_frequency);
+
+  if (set_interval_id !== undefined) {
+    clearInterval(set_interval_id);
+    set_interval_id = setInterval(draw_path, 1000 / draw_frequency);
+  }
 }

@@ -114,8 +114,8 @@ function get_string_representation(value) {
 function btn(str, simulate_typing) {
   switch (str) {
     case "=": {
-      // We need to parse our latex string into an infix string, and send it to the server for
-      // evlaulation
+      // We need to parse our latex string into an infix string, and send it forward for evaluation
+      const PRECISION = 10;
       const latex = math_field_g.latex();
       const parsed_input = parse_latex(latex, 0, latex.length);
       console.debug("raw latex: " + latex);
@@ -136,8 +136,14 @@ function btn(str, simulate_typing) {
       console.debug("AST: ", ast);
 
       last_calculated_g = evaluate_ast(ast);
+      console.debug("evaluated: ", last_calculated_g);
+      if (last_calculated_g === undefined) {
+        return;
+      }
       // Truncate to zero when the floating point error is small enough
-      if (last_calculated_g < Number.EPSILON) { value = 0; }
+      if (Math.abs(last_calculated_g - Math.round(last_calculated_g)) < Math.pow(10,-PRECISION)) {
+        last_calculated_g = Math.round(last_calculated_g);
+      }
       output_field_g.innerHTML = "= " + get_string_representation(last_calculated_g);
 
       // Now we need to upadate the history window
@@ -274,6 +280,7 @@ function parse_latex(latex, start_index, end_index) {
   let i = start_index;
   let paren_balance = 0;
 
+  console.debug(latex);
   while (i < latex.length && i < end_index) {
     if (latex[i] === " ") { i += 1; continue; }
     if (latex[i] === "-" || latex[i] === "." || is_numeric(latex[i])) {
@@ -316,11 +323,11 @@ function parse_latex(latex, start_index, end_index) {
         console.debug("mult");
         parsed += "*";
         i += 5;
-      } else if (latex.substring(i+1, i+4) === "mod") {
+      } else if (latex.substring(i+1, i+10) === "text{mod}") {
         console.debug("mod");
         parsed += "mod";
-        i += 4;
-      } else if (latex.substring(i+1, i+4) === "sqrt") {
+        i += 10;
+      } else if (latex.substring(i+1, i+5) === "sqrt") {
         // root = "\sqrt"
         console.debug("square root");
         i += 5;
@@ -404,6 +411,10 @@ function parse_latex(latex, start_index, end_index) {
           i += 4;
         }
       }
+
+      else if (latex[i + 1] === " ") { i += 2; }
+
+      else { console.debug("default backslash"); return undefined; }
     }
 
     else { console.debug("default"); return undefined; }
@@ -571,6 +582,7 @@ function evaluate_ast(ast) {
     case "/": return evaluated[0] / evaluated[1];
     case "^": return Math.pow(evaluated[0], evaluated[1]);
     case "-": return -evaluated[0];
+    case "mod": return evaluated[0] % evaluated[1];
     case "log": return Math.log(evaluated[1]) / Math.log(evaluated[0]);
     case "root": return Math.pow(evaluated[1], 1 / evaluated[0]);
     case "sin": return (deg_rad_g) ? Math.sin(evaluated[0] * Math.PI / 180) : Math.sin(evaluated[0]);
@@ -579,5 +591,6 @@ function evaluate_ast(ast) {
     case "arcsin": return (deg_rad_g) ? Math.asin(evaluated[0] * Math.PI / 180) : Math.asin(evaluated[0]);
     case "arccos": return (deg_rad_g) ? Math.acos(evaluated[0] * Math.PI / 180) : Math.acos(evaluated[0]);
     case "arctan": return (deg_rad_g) ? Math.atan(evaluated[0] * Math.PI / 180) : Math.atan(evaluated[0]);
+    default: return undefined;
   }
 }

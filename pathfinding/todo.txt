@@ -1,2 +1,0 @@
-Now, I'm finally writing the pathfinding and maze generation code. I've written some notes in the
-file responsible for that, but I'm not sure what issues will appear as I start writting the stuff.

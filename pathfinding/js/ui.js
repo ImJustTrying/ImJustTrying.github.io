@@ -12,8 +12,8 @@ var ui;
 var avg_draw_time = 0; // In milliseconds
 var draw_calls = 0;
 var last_draw_count = 0;
-// first value determines if editing (i.e. drawing/erasing walls) is enabled, the second
-// whether walls are being drawn (true) or erased (false).
+// first value determines if editing (i.e. drawing/erasing walls) is enabled.
+// the second is whether walls are being drawn (true) or erased (false).
 var editing = [false, true];
 var last_mouse_cell = { x: 0, y: 0 };
 var mouse = { x: 0, y: 0 };
@@ -102,12 +102,6 @@ function draw_icons() {
         // Don't draw the icon we're dragging
         if (!vertices_equal(vertex, ui.drag[1]) && ui.state.bound_check(vertex)) {
             ctx.fillText(vertex.icon, vertex.x * cellsize, (vertex.y + 1) * cellsize);
-            // Write a subscript for the intermediate vertices
-            if (vertex.cell_type === CellType.Intermediate) {
-                ctx.font = "600 " + (cellsize / 2).toString() + "px 'Font Awesome 5 Free'";
-                ctx.fillText((vertex.intermediate_index + 1).toString(), vertex.x * cellsize + cellsize / 2, (vertex.y + 1) * cellsize);
-                ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
-            }
         }
     }
 }
@@ -115,7 +109,7 @@ function draw_walls() {
     var ctx = ui.ctx;
     var cellsize = ui.cell_size;
     // Draw walls
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = "#ffffff";
     for (var _i = 0, _a = ui.state.get_walls(); _i < _a.length; _i++) {
         var v = _a[_i];
         if (ui.state.bound_check(v)) {
@@ -193,17 +187,16 @@ var UI = /** @class */ (function () {
                 if (state.is_wall(cell_coord)) {
                     return;
                 }
-                // If there is a special vertex with a different cell type or intermediate index, then
+                // If there is a special vertex with a different cell type, then
                 // do not do anything and return
                 if (state.is_special_vertex_at(cell_coord)) {
                     var v = state.get_special_vertex_at(cell_coord);
-                    if (!(v.ok && v.value.cell_type === drag[1].cell_type &&
-                        v.value.intermediate_index === drag[1].intermediate_index)) {
+                    if (!(v.ok && v.value.cell_type === drag[1].cell_type)) {
                         return;
                     }
                 }
                 if (drag[1].cell_type === CellType.Intermediate) {
-                    drag[0] = !state.set_special_vertex(cell_coord, drag[1].cell_type, drag[1].intermediate_index);
+                    drag[0] = !state.set_special_vertex(cell_coord, drag[1].cell_type);
                 }
                 else {
                     drag[0] = !state.set_special_vertex(cell_coord, drag[1].cell_type);

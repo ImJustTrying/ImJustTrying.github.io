@@ -16,7 +16,7 @@ interface Vertex {
   y: number;
   icon?: string;
   cell_type?: CellType;
-  intermediate_index?: number;
+  ancestor?: Vertex;
 }
 
 interface Wall {
@@ -133,17 +133,14 @@ function gen_random_int(lower: number, higher: number, exclude: number[] = []): 
 class Graph {
   private start: Vertex;
   private goal: Vertex;
-  private intermediates: [Vertex, Vertex, Vertex];
   private walls: object;
   private width: number;
   private height: number;
 
 
   constructor() {
-    const intermediate = { x : -1, y : -1 };
-    this.start = intermediate;
-    this.goal = intermediate;
-    this.intermediates = [intermediate, intermediate, intermediate];
+    this.start = { x : -1, y : -1 };
+    this.goal = { x : -1, y : -1 };
     this.walls = {};
     this.width = 0;
     this.height = 0;
@@ -154,47 +151,6 @@ class Graph {
 
   bound_check(v: Vertex): boolean {
     return v.x >= 0 && v.x < this.width && v.y >= 0 && v.y < this.height;
-  }
-
-  remove_intermediate(): void {
-    for (let i = 2; i >= 0; i -= 1) {
-      if (this.bound_check(this.intermediates[i])) {
-        this.intermediates[i].x = -1;
-        this.intermediates[i].y = -1;
-      }
-    }
-  }
-
-  add_intermediate(): void {
-    // Look for the first intermediate vertex that is not initialized
-    for (let i = 0; i < 3; i += 1) {
-      if (!this.bound_check(this.intermediates[i])) {
-        const queue: Vertex[] = [{x: 0, y: 0}];
-        let found_backup: boolean = false;
-        let backup_vertex: Vertex;
-
-        // Do breadth first search from the cell at 0,0 for an empty cell. If we can't find one, we
-        // just choose the first cell we found with a wall and put it there
-        while (queue.length > 0) {
-          const v: Vertex = queue.shift();
-          if (!this.is_special_vertex_at(v) && !found_backup) {
-            found_backup = true;
-            backup_vertex = v;
-          }
-
-          if (!this.is_special_vertex_at(v) && !this.is_wall(v)) {
-            this.set_special_vertex(v, CellType.Intermediate, i);
-            return;
-          }
-          this.get_neighbors(v).filter((v) => this.bound_check(v)).map((v) => queue.push(v));
-        }
-
-        if (found_backup) {
-          this.set_special_vertex(backup_vertex, CellType.Intermediate, i);
-          return;
-        }
-      }
-    }
   }
 
   set_width_and_height(new_width: number, new_height: number): void {
@@ -244,20 +200,8 @@ class Graph {
         this.set_void(backup);
       }
 
-      // Even if the vertex is not an intermediate one, the third parameter won't be used so it's
-      // safe to pass it in despite being undefined
-      this.set_special_vertex(found_vertex, v.cell_type, v.intermediate_index);
+      this.set_special_vertex(found_vertex, v.cell_type);
     }
-  }
-
-
-  get_intermediate_index_at(position: Vertex): Option<number> {
-    for (let i = 0; i < 3; i += 1) {
-      if (vertices_equal(this.intermediates[i], position)) {
-        return { ok: true, value: i };
-      }
-    }
-    return { ok: false, err: "No intermediate node at that position" };
   }
 
   get_neighbors(vertex: Vertex, shuffle: boolean = false): Vertex[] {
@@ -269,7 +213,7 @@ class Graph {
     if (vertex.y > 0)           { neighbors.push({x: vertex.x, y: vertex.y - 1}); }
 
     if (shuffle) {
-      // Shuffle the list of neighbors for the sake of the maze generation algorithms
+      // Shuffle the list of neighbors
       for (let i = 0; i < neighbors.length - 1; i += 1) {
         const k: number = gen_random_int(i, neighbors.length).value;
         const t: Vertex = neighbors[i];
@@ -288,25 +232,20 @@ class Graph {
         y: v.y,
         icon: v.icon,
         cell_type: v.cell_type,
-        intermediate_index: v.intermediate_index
       };
     }
     const vertices =  [
       this.start,
       this.goal,
-      this.intermediates[0],
-      this.intermediates[1],
-      this.intermediates[2]
     ];
     return vertices.map(copy_vertex)
   }
 
 
-  get_special_vertex(cell_type: CellType, intermediate_index: number = 0): Vertex {
+  get_special_vertex(cell_type: CellType): Vertex {
     switch (cell_type) {
       case CellType.Start: return this.start;
       case CellType.Goal: return this.goal;
-      case CellType.Intermediate: return this.intermediates[intermediate_index];
     }
   }
 
@@ -335,7 +274,7 @@ class Graph {
     return false;
   }
 
-  set_special_vertex(v: Vertex, cell_type: CellType, intermediate_index: number = 0): boolean {
+  set_special_vertex(v: Vertex, cell_type: CellType): boolean {
     if (this.bound_check(v) && (!this.is_special_vertex_at(v) || this.is_special_vertex_at(v) &&
         this.get_special_vertex_at(v).value.cell_type === cell_type)) {
       switch (cell_type) {
@@ -354,26 +293,11 @@ class Graph {
           break;
         }
 
-        case CellType.Intermediate: {
-          this.intermediates[intermediate_index] = v;
-          this.intermediates[intermediate_index].cell_type = CellType.Intermediate;
-          this.intermediates[intermediate_index].icon = "\uf054";
-          this.intermediates[intermediate_index].intermediate_index = intermediate_index;
-          break;
-        }
-
         default: return false;
       }
       return true;
     }
     return false;
-  }
-
-  clear_intermediates(): void {
-    for (let i = 0; i < 3; i += 1) {
-      this.intermediates[i].x = -1;
-      this.intermediates[i].y = -1;
-    }
   }
 
   // Here, we just create a key that is unique to the given vertex, then check if the value in

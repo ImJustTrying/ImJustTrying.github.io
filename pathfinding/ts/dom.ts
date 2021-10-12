@@ -10,12 +10,7 @@ enum Search {
   AStar, UCS, BFS, GS
 }
 
-enum Maze {
-  Division, BinaryTree, Backtracker, Kruskal, Prim, Wilson
-}
-
 let search_method: Search;
-let maze_generator: Maze;
 let draw_frequency: number = 1;
 
 // These are all the DOM functions
@@ -38,7 +33,6 @@ function init(): void {
   });
 
   update_search();
-  update_maze();
   setInterval(function() {
     console.debug(`new draw calls: ${draw_calls - last_draw_count}`);
     console.debug(`draw rate: ${(draw_calls - last_draw_count) / 5} per second`);
@@ -76,37 +70,6 @@ function update_search(): void {
   }
 }
 
-function update_maze(): void {
-  const element: any = document.getElementById("maze");
-  const value = element.options[element.selectedIndex].value;
-  switch (value) {
-    case "rediv": {
-      maze_generator = Maze.Division;
-      break;
-    }
-    case "binary": {
-      maze_generator = Maze.BinaryTree;
-      break;
-    }
-    case "reback": {
-      maze_generator = Maze.Backtracker;
-      break;
-    }
-    case "kruskal": {
-      maze_generator = Maze.Kruskal;
-      break;
-    }
-    case "prim": {
-      maze_generator = Maze.Prim;
-      break;
-    }
-    case "wilson": {
-      maze_generator = Maze.Wilson;
-      break;
-    }
-  }
-}
-
 function switch_menu_state(): void {
   const menu: any = document.getElementById("edit-menu");
   const btn: any = document.getElementById("menu-slider");
@@ -121,14 +84,14 @@ function enable_btn(draw_walls: boolean): void {
   const write = document.getElementById("write");
   const erase = document.getElementById("erase");
   if (draw_walls) {
-    write.classList.remove("disabled");
+    write.classList.remove("disabled_color");
     write.classList.add("enabled");
     erase.classList.remove("enabled");
-    erase.classList.add("disabled");
+    erase.classList.add("disabled_color");
   } else {
     write.classList.remove("enabled");
-    write.classList.add("disabled");
-    erase.classList.remove("disabled")
+    write.classList.add("disabled_color");
+    erase.classList.remove("disabled_color")
     erase.classList.add("enabled");
   }
 }
@@ -186,46 +149,6 @@ function pathfind(): void {
   for (let i = 0; i < btns.length; i += 1) {
     btns[i].disabled = false;
   }
-}
-
-function gen_maze(): void {
-  // Disable all buttons while pathfinding
-  const btns = document.getElementsByTagName("button")
-  for (let i = 0; i < btns.length; i += 1) {
-    btns[i].disabled = true;
-  }
-
-  clear_grid();
-  ui.state.clear_intermediates();
-  ui.state.set_special_vertex({ x: 0, y: 0 }, CellType.Start);
-  switch (maze_generator) {
-    case Maze.Division:
-      recursive_division();
-      break;
-    case Maze.Backtracker:
-      recursive_backtracker();
-      break;
-    case Maze.Kruskal:
-      randomized_kruskal();
-      break;
-  }
-  ui.state.set_special_vertex(get_goal(), CellType.Goal);
-  window.requestAnimationFrame(draw);
-  //window.requestAnimationFrame(draw_maze);
-
-  // Re-enable buttons
-  for (let i = 0; i < btns.length; i += 1) {
-    btns[i].disabled = false;
-  }
-}
-
-function intermediates(add: boolean) {
-  if (add) {
-    ui.state.add_intermediate();
-  } else {
-    ui.state.remove_intermediate();
-  }
-  window.requestAnimationFrame(draw);
 }
 
 // Rate is in Hz

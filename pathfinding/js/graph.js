@@ -101,10 +101,8 @@ function gen_random_int(lower, higher, exclude) {
  */
 var Graph = /** @class */ (function () {
     function Graph() {
-        var intermediate = { x: -1, y: -1 };
-        this.start = intermediate;
-        this.goal = intermediate;
-        this.intermediates = [intermediate, intermediate, intermediate];
+        this.start = { x: -1, y: -1 };
+        this.goal = { x: -1, y: -1 };
         this.walls = {};
         this.width = 0;
         this.height = 0;
@@ -114,49 +112,6 @@ var Graph = /** @class */ (function () {
     Graph.prototype.bound_check = function (v) {
         return v.x >= 0 && v.x < this.width && v.y >= 0 && v.y < this.height;
     };
-    Graph.prototype.remove_intermediate = function () {
-        for (var i = 2; i >= 0; i -= 1) {
-            if (this.bound_check(this.intermediates[i])) {
-                this.intermediates[i].x = -1;
-                this.intermediates[i].y = -1;
-            }
-        }
-    };
-    Graph.prototype.add_intermediate = function () {
-        var _this = this;
-        var _loop_1 = function (i) {
-            if (!this_1.bound_check(this_1.intermediates[i])) {
-                var queue_1 = [{ x: 0, y: 0 }];
-                var found_backup = false;
-                var backup_vertex = void 0;
-                // Do breadth first search from the cell at 0,0 for an empty cell. If we can't find one, we
-                // just choose the first cell we found with a wall and put it there
-                while (queue_1.length > 0) {
-                    var v = queue_1.shift();
-                    if (!this_1.is_special_vertex_at(v) && !found_backup) {
-                        found_backup = true;
-                        backup_vertex = v;
-                    }
-                    if (!this_1.is_special_vertex_at(v) && !this_1.is_wall(v)) {
-                        this_1.set_special_vertex(v, CellType.Intermediate, i);
-                        return { value: void 0 };
-                    }
-                    this_1.get_neighbors(v).filter(function (v) { return _this.bound_check(v); }).map(function (v) { return queue_1.push(v); });
-                }
-                if (found_backup) {
-                    this_1.set_special_vertex(backup_vertex, CellType.Intermediate, i);
-                    return { value: void 0 };
-                }
-            }
-        };
-        var this_1 = this;
-        // Look for the first intermediate vertex that is not initialized
-        for (var i = 0; i < 3; i += 1) {
-            var state_1 = _loop_1(i);
-            if (typeof state_1 === "object")
-                return state_1.value;
-        }
-    };
     Graph.prototype.set_width_and_height = function (new_width, new_height) {
         var _this = this;
         var out_of_bounds = this
@@ -164,7 +119,7 @@ var Graph = /** @class */ (function () {
             .filter(function (v) { return v.x >= new_width || v.y >= new_height; });
         this.width = new_width;
         this.height = new_height;
-        var _loop_2 = function (v) {
+        var _loop_1 = function (v) {
             // We will first calculate the closest cell to the out of bounds vertex
             var nearest = {
                 x: (v.x >= new_width) ? new_width - 1 : v.x,
@@ -178,16 +133,16 @@ var Graph = /** @class */ (function () {
             var backup = void 0;
             while (queue.length > 0) {
                 var vertex = queue.shift();
-                if (!found_backup && !this_2.is_special_vertex_at(vertex)) {
+                if (!found_backup && !this_1.is_special_vertex_at(vertex)) {
                     backup = vertex;
                     found_backup = true;
                 }
-                if (!this_2.is_special_vertex_at(vertex) && !this_2.is_wall(vertex)) {
+                if (!this_1.is_special_vertex_at(vertex) && !this_1.is_wall(vertex)) {
                     found_vertex = vertex;
                     found = true;
                     break;
                 }
-                this_2.get_neighbors(vertex)
+                this_1.get_neighbors(vertex)
                     .filter(function (vert) { return _this.bound_check(vert); })
                     .map(function (vert) { return queue.push(vert); });
             }
@@ -195,26 +150,16 @@ var Graph = /** @class */ (function () {
             // and put the vertex there.
             if (!found) {
                 found_vertex = backup;
-                this_2.set_void(backup);
+                this_1.set_void(backup);
             }
-            // Even if the vertex is not an intermediate one, the third parameter won't be used so it's
-            // safe to pass it in despite being undefined
-            this_2.set_special_vertex(found_vertex, v.cell_type, v.intermediate_index);
+            this_1.set_special_vertex(found_vertex, v.cell_type);
         };
-        var this_2 = this;
+        var this_1 = this;
         // Reposition any special vertices that are no longer within the graph bounds
         for (var _i = 0, out_of_bounds_1 = out_of_bounds; _i < out_of_bounds_1.length; _i++) {
             var v = out_of_bounds_1[_i];
-            _loop_2(v);
+            _loop_1(v);
         }
-    };
-    Graph.prototype.get_intermediate_index_at = function (position) {
-        for (var i = 0; i < 3; i += 1) {
-            if (vertices_equal(this.intermediates[i], position)) {
-                return { ok: true, value: i };
-            }
-        }
-        return { ok: false, err: "No intermediate node at that position" };
     };
     Graph.prototype.get_neighbors = function (vertex, shuffle) {
         if (shuffle === void 0) { shuffle = false; }
@@ -235,7 +180,7 @@ var Graph = /** @class */ (function () {
             neighbors.push({ x: vertex.x, y: vertex.y - 1 });
         }
         if (shuffle) {
-            // Shuffle the list of neighbors for the sake of the maze generation algorithms
+            // Shuffle the list of neighbors
             for (var i = 0; i < neighbors.length - 1; i += 1) {
                 var k = gen_random_int(i, neighbors.length).value;
                 var t = neighbors[i];
@@ -252,25 +197,19 @@ var Graph = /** @class */ (function () {
                 x: v.x,
                 y: v.y,
                 icon: v.icon,
-                cell_type: v.cell_type,
-                intermediate_index: v.intermediate_index
+                cell_type: v.cell_type
             };
         }
         var vertices = [
             this.start,
             this.goal,
-            this.intermediates[0],
-            this.intermediates[1],
-            this.intermediates[2]
         ];
         return vertices.map(copy_vertex);
     };
-    Graph.prototype.get_special_vertex = function (cell_type, intermediate_index) {
-        if (intermediate_index === void 0) { intermediate_index = 0; }
+    Graph.prototype.get_special_vertex = function (cell_type) {
         switch (cell_type) {
             case CellType.Start: return this.start;
             case CellType.Goal: return this.goal;
-            case CellType.Intermediate: return this.intermediates[intermediate_index];
         }
     };
     Graph.prototype.get_special_vertex_at = function (v) {
@@ -297,8 +236,7 @@ var Graph = /** @class */ (function () {
         }
         return false;
     };
-    Graph.prototype.set_special_vertex = function (v, cell_type, intermediate_index) {
-        if (intermediate_index === void 0) { intermediate_index = 0; }
+    Graph.prototype.set_special_vertex = function (v, cell_type) {
         if (this.bound_check(v) && (!this.is_special_vertex_at(v) || this.is_special_vertex_at(v) &&
             this.get_special_vertex_at(v).value.cell_type === cell_type)) {
             switch (cell_type) {
@@ -315,24 +253,11 @@ var Graph = /** @class */ (function () {
                     this.goal.icon = "\uf140";
                     break;
                 }
-                case CellType.Intermediate: {
-                    this.intermediates[intermediate_index] = v;
-                    this.intermediates[intermediate_index].cell_type = CellType.Intermediate;
-                    this.intermediates[intermediate_index].icon = "\uf054";
-                    this.intermediates[intermediate_index].intermediate_index = intermediate_index;
-                    break;
-                }
                 default: return false;
             }
             return true;
         }
         return false;
-    };
-    Graph.prototype.clear_intermediates = function () {
-        for (var i = 0; i < 3; i += 1) {
-            this.intermediates[i].x = -1;
-            this.intermediates[i].y = -1;
-        }
     };
     // Here, we just create a key that is unique to the given vertex, then check if the value in
     // the walls object is undefined or not

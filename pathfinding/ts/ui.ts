@@ -14,8 +14,8 @@ let ui: UI;
 let avg_draw_time: number = 0; // In milliseconds
 let draw_calls: number = 0;
 let last_draw_count: number = 0;
-// first value determines if editing (i.e. drawing/erasing walls) is enabled, the second
-// whether walls are being drawn (true) or erased (false).
+// first value determines if editing (i.e. drawing/erasing walls) is enabled.
+// the second is whether walls are being drawn (true) or erased (false).
 let editing: [boolean, boolean] = [false, true];
 let last_mouse_cell: Vertex = { x: 0, y: 0 };
 const mouse: Vertex = { x: 0, y: 0 };
@@ -122,16 +122,6 @@ function draw_icons(): void {
     // Don't draw the icon we're dragging
     if (!vertices_equal(vertex, ui.drag[1]) && ui.state.bound_check(vertex)) {
       ctx.fillText(vertex.icon, vertex.x * cellsize, (vertex.y + 1) * cellsize);
-      // Write a subscript for the intermediate vertices
-      if (vertex.cell_type === CellType.Intermediate) {
-        ctx.font = "600 " + (cellsize / 2).toString() + "px 'Font Awesome 5 Free'";
-        ctx.fillText(
-          (vertex.intermediate_index + 1).toString(),
-          vertex.x * cellsize + cellsize / 2,
-          (vertex.y + 1) * cellsize
-        );
-        ctx.font = "600 " + cellsize.toString() + "px 'Font Awesome 5 Free'";
-      }
     }
   }
 }
@@ -141,7 +131,7 @@ function draw_walls(): void {
   const cellsize: number = ui.cell_size;
 
   // Draw walls
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = "#ffffff";
   for (const v of ui.state.get_walls()) {
     if (ui.state.bound_check(v)) {
       ctx.fillRect(v.x * cellsize, v.y * cellsize, cellsize, cellsize);
@@ -173,7 +163,6 @@ class UI {
   cell_size: number; // In pixels
   state: Graph;
   // The boolean represents whether something is currently being dragged
-  // The string is the fontawesome unicode value for the icon being dragged
   drag: [boolean, Vertex];
 
   constructor(cell_size: number, state: Graph) {
@@ -249,12 +238,11 @@ class UI {
           return;
         }
 
-        // If there is a special vertex with a different cell type or intermediate index, then
+        // If there is a special vertex with a different cell type, then
         // do not do anything and return
         if (state.is_special_vertex_at(cell_coord)) {
           const v: Option<Vertex> = state.get_special_vertex_at(cell_coord);
-          if (!(v.ok && v.value.cell_type === drag[1].cell_type &&
-              v.value.intermediate_index === drag[1].intermediate_index)) {
+          if (!(v.ok && v.value.cell_type === drag[1].cell_type)) {
             return;
           }
         }
@@ -263,7 +251,6 @@ class UI {
           drag[0] = !state.set_special_vertex(
             cell_coord,
             drag[1].cell_type,
-            drag[1].intermediate_index
           );
         } else {
           drag[0] = !state.set_special_vertex(cell_coord, drag[1].cell_type);

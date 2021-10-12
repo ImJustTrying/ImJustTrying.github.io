@@ -2,28 +2,26 @@
  * Kevin Vicente
  * June 2020
  *
- * Here we implement all of the distinct maze generation and graph search algorithms.
+ * Here we implement all of the distinct graph search algorithms.
  * This file depends on dom.ts, ui.ts, and graph.ts.
  * An explanation of how this file does what it does:
  * (1) We have a draw queue, which is a queue of vertices to animate on the canvas
- * (2) We have have two drawing procedures -- one for drawing mazes and the other for paths
- * (3) We have a procedure for every maze generation and graph traversal algorithm, which will add
+ * (2) We have have one drawing procedure -- for drawing paths
+ * (3) We have a procedure for every graph traversal algorithm, which will add
  * vertices to the draw queue, and will also call window.requestAnimationFrame() on the
  * appropriate drawing procedure.
- * (4) We assume that only a single maze generation or graph traversal procedure is running at any
+ * (4) We assume that only a graph traversal procedure is running at any
  * given point in time during execution.
  */
 var draw_queue = [];
 var last_vertex;
 var set_interval_id;
-// Drawing procedures
-function draw_maze(timestamp) {
-}
+// Drawing procedure. Note that this is called using setInterval, not directly.
 function draw_path() {
     var cs = ui.cell_size;
     if (draw_queue.length > 0) {
         var v = draw_queue.shift();
-        if (last_vertex !== undefined && !ui.state.is_special_vertex_at(last_vertex)) {
+        if (!ui.state.is_special_vertex_at(last_vertex)) {
             // Change the color of the last drawn vertex to dark gray
             ui.ctx.fillRect(last_vertex.x * cs, last_vertex.y * cs, cs, cs);
         }
@@ -36,8 +34,13 @@ function draw_path() {
         last_vertex = v;
     }
     else {
-        // Fill the last vertex with white
-        ui.ctx.fillRect(last_vertex.x * cs, last_vertex.y * cs, cs, cs);
+        // Draw path with red cells
+        ui.ctx.fillStyle = "#cc0000";
+        var current = last_vertex.ancestor;
+        while (current.ancestor !== undefined) {
+            ui.ctx.fillRect(current.x * cs, current.y * cs, cs, cs);
+            current = current.ancestor;
+        }
         ui.ctx.fillStyle = "#ffffff";
         clearInterval(set_interval_id);
         set_interval_id = undefined;
@@ -46,18 +49,18 @@ function draw_path() {
 }
 // Graph algorithms
 function bfs() {
-    var queue = [ui.state.get_special_vertex(CellType.Start)];
+    var first = ui.state.get_special_vertex(CellType.Start);
+    first.ancestor = undefined;
+    var queue = [first];
     ui.state.clear_visited();
     ui.state.clear_marked();
-    while (queue.length > 0) {
+    var _loop_1 = function () {
         var current = queue.shift();
         var special_vertex = ui.state.get_special_vertex_at(current);
         ui.state.set_visited(current);
+        draw_queue.push(current);
         if (special_vertex.ok && special_vertex.value.cell_type === CellType.Goal) {
-            break;
-        }
-        if (!special_vertex.ok) {
-            draw_queue.push(current);
+            return "break";
         }
         ui.state.get_neighbors(current, true)
             .filter(function (v) {
@@ -65,10 +68,16 @@ function bfs() {
         }).map(function (v) {
             ui.state.set_marked(v);
             queue.push(v);
+            v.ancestor = current;
         });
+    };
+    while (queue.length > 0) {
+        var state_1 = _loop_1();
+        if (state_1 === "break")
+            break;
     }
-    console.debug(draw_queue.length);
     draw();
+    last_vertex = draw_queue.shift();
     set_interval_id = setInterval(draw_path, 1000 / draw_frequency);
 }
 // The evaluation function will take the current state and the total accumulated cost up to and
@@ -77,16 +86,15 @@ function best_first_search(evaluation) {
     ui.state.clear_visited();
     ui.state.clear_marked();
     var first = ui.state.get_special_vertex(CellType.Start);
+    first.ancestor = undefined;
     var frontier = new PriorityQueue([new QElem(first, evaluation(first, 0), 0)]);
-    var _loop_1 = function () {
+    var _loop_2 = function () {
         var current = frontier.dequeue().value;
         var special_vertex_opt = ui.state.get_special_vertex_at(current.element);
         ui.state.set_visited(current.element);
+        draw_queue.push(current.element);
         if (special_vertex_opt.ok && special_vertex_opt.value.cell_type === CellType.Goal) {
             return "break";
-        }
-        if (!special_vertex_opt.ok) {
-            draw_queue.push(current.element);
         }
         ui.state.get_neighbors(current.element)
             .filter(function (v) {
@@ -94,14 +102,16 @@ function best_first_search(evaluation) {
         }).map(function (v) {
             ui.state.set_marked(v);
             frontier.enqueue(v, evaluation(v, current.cost), current.cost + 1);
+            v.ancestor = current.element;
         });
     };
     while (!frontier.is_empty()) {
-        var state_1 = _loop_1();
-        if (state_1 === "break")
+        var state_2 = _loop_2();
+        if (state_2 === "break")
             break;
     }
     draw();
+    last_vertex = draw_queue.shift();
     set_interval_id = setInterval(draw_path, 1000 / draw_frequency);
 }
 // We do BFS from the bottom right to find an empty cell to place the goal vertex

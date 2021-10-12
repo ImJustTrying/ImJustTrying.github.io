@@ -12,17 +12,7 @@ var Search;
     Search[Search["BFS"] = 2] = "BFS";
     Search[Search["GS"] = 3] = "GS";
 })(Search || (Search = {}));
-var Maze;
-(function (Maze) {
-    Maze[Maze["Division"] = 0] = "Division";
-    Maze[Maze["BinaryTree"] = 1] = "BinaryTree";
-    Maze[Maze["Backtracker"] = 2] = "Backtracker";
-    Maze[Maze["Kruskal"] = 3] = "Kruskal";
-    Maze[Maze["Prim"] = 4] = "Prim";
-    Maze[Maze["Wilson"] = 5] = "Wilson";
-})(Maze || (Maze = {}));
 var search_method;
-var maze_generator;
 var draw_frequency = 1;
 // These are all the DOM functions
 function init() {
@@ -41,7 +31,6 @@ function init() {
         window.requestAnimationFrame(draw);
     });
     update_search();
-    update_maze();
     setInterval(function () {
         console.debug("new draw calls: " + (draw_calls - last_draw_count));
         console.debug("draw rate: " + (draw_calls - last_draw_count) / 5 + " per second");
@@ -76,36 +65,6 @@ function update_search() {
         }
     }
 }
-function update_maze() {
-    var element = document.getElementById("maze");
-    var value = element.options[element.selectedIndex].value;
-    switch (value) {
-        case "rediv": {
-            maze_generator = Maze.Division;
-            break;
-        }
-        case "binary": {
-            maze_generator = Maze.BinaryTree;
-            break;
-        }
-        case "reback": {
-            maze_generator = Maze.Backtracker;
-            break;
-        }
-        case "kruskal": {
-            maze_generator = Maze.Kruskal;
-            break;
-        }
-        case "prim": {
-            maze_generator = Maze.Prim;
-            break;
-        }
-        case "wilson": {
-            maze_generator = Maze.Wilson;
-            break;
-        }
-    }
-}
 function switch_menu_state() {
     var menu = document.getElementById("edit-menu");
     var btn = document.getElementById("menu-slider");
@@ -119,15 +78,15 @@ function enable_btn(draw_walls) {
     var write = document.getElementById("write");
     var erase = document.getElementById("erase");
     if (draw_walls) {
-        write.classList.remove("disabled");
+        write.classList.remove("disabled_color");
         write.classList.add("enabled");
         erase.classList.remove("enabled");
-        erase.classList.add("disabled");
+        erase.classList.add("disabled_color");
     }
     else {
         write.classList.remove("enabled");
-        write.classList.add("disabled");
-        erase.classList.remove("disabled");
+        write.classList.add("disabled_color");
+        erase.classList.remove("disabled_color");
         erase.classList.add("enabled");
     }
 }
@@ -180,43 +139,6 @@ function pathfind() {
     for (var i = 0; i < btns.length; i += 1) {
         btns[i].disabled = false;
     }
-}
-function gen_maze() {
-    // Disable all buttons while pathfinding
-    var btns = document.getElementsByTagName("button");
-    for (var i = 0; i < btns.length; i += 1) {
-        btns[i].disabled = true;
-    }
-    clear_grid();
-    ui.state.clear_intermediates();
-    ui.state.set_special_vertex({ x: 0, y: 0 }, CellType.Start);
-    switch (maze_generator) {
-        case Maze.Division:
-            recursive_division();
-            break;
-        case Maze.Backtracker:
-            recursive_backtracker();
-            break;
-        case Maze.Kruskal:
-            randomized_kruskal();
-            break;
-    }
-    ui.state.set_special_vertex(get_goal(), CellType.Goal);
-    window.requestAnimationFrame(draw);
-    //window.requestAnimationFrame(draw_maze);
-    // Re-enable buttons
-    for (var i = 0; i < btns.length; i += 1) {
-        btns[i].disabled = false;
-    }
-}
-function intermediates(add) {
-    if (add) {
-        ui.state.add_intermediate();
-    }
-    else {
-        ui.state.remove_intermediate();
-    }
-    window.requestAnimationFrame(draw);
 }
 // Rate is in Hz
 function change_speed(rate) {

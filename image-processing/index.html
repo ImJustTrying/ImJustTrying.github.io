@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <meta charset="UTF-8">
+        <link rel="icon" type="image/png" href="favicon-32x32.png">
+        <link rel="stylesheet" href="style.css">
+        <script src="wasm.js" type="module"></script>
+    </head>
+    <body>
+        <img src="" alt="Placeholder" id="source" hidden>
+        <canvas id="hiddenCanvas" hidden></canvas>
+
+        <input type="file" id="finput" accept="image/png">
+        <br>
+        <button id="btnBlur">Blur</button>
+        <button id="btnReset">Reset</button>
+        <br>
+        <canvas id="viewerCanvas"></canvas>
+    </body>
+</html>

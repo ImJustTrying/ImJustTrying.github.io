@@ -1,0 +1,11 @@
+#viewerc {
+    cursor: crosshair;
+    width: 90vw;
+    height: 90vh;
+    background: #252525;
+}
+
+body {
+    background: #505050;
+    position: relative;
+}

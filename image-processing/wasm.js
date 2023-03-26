@@ -1,4 +1,4 @@
-import init, { gaussian_blur } from "./rust-wasm/pkg/rust_wasm.js"
+import init, { gaussian_blur, decode_png } from "./rust-wasm/pkg/rust_wasm.js"
 
 // Code is sourced from:
 // https://developer.mozilla.org/en-US/docs/Glossary/Base64
@@ -66,6 +66,7 @@ function handleFile(context) {
         context.hiddenCanvas.height = img.naturalHeight;
         context.viewerCanvas.width  = img.naturalWidth;
         context.viewerCanvas.height = img.naturalHeight;
+        context.viewerImageData = null;
         // Draw the contents to the hidden canvas to extract the image data.
         context.hiddenCanvas.getContext("2d").drawImage(img, 0, 0);
 
@@ -73,14 +74,15 @@ function handleFile(context) {
         const dataURL = context.hiddenCanvas.toDataURL("image/png");
         const noHeader = dataURL.replace(/^data:image\/png;base64,/, "");
         const rawBytes = base64DecToArr(noHeader);
-        console.debug(rawBytes);
-        context.hiddenRawBytes = rawBytes;
+        init().then(() => {
+            const decoded = decode_png(rawBytes);
+            console.debug(decoded);
+            context.hiddenRawBytes = decoded;
+        });
         draw(context, img);
     };
 }
 
-// Derived from source:
-// https://stackoverflow.com/questions/68621712/canvas-fill-viewport-and-keep-image-ratio
 function draw(context, imageData) {
     const window_w = window.innerWidth;
     const window_h = window.innerHeight;
@@ -88,6 +90,8 @@ function draw(context, imageData) {
     const image_h = context.imgin.naturalHeight;
     let can = context.viewerCanvas;
 
+    // Derived from source:
+    // https://stackoverflow.com/questions/68621712/canvas-fill-viewport-and-keep-image-ratio
     can.width = window_w;
     can.height = window_h;
     const factor = image_h / image_w * can.width > window_h ?
@@ -96,43 +100,37 @@ function draw(context, imageData) {
     const offset_w = image_w * factor;
     const offset_h = image_h * factor;
     can.getContext("2d").drawImage(imageData, 0, 0, offset_w, offset_h);
+    // End of sourced code
 }
-// End of sourced code
 
 function wasmBlur(context) {
-    init().then(() => {
-        const bytes = context.viewerRawBytes == null ?
-            context.hiddenRawBytes :
-            context.viewerRawBytes;
-        console.debug(bytes);
-        // TODO: On first go we pass PNG binary, but on  the second we pass 
-        // the raw color data. Maybe handle them seperately?
-        context.viewerRawBytes = new Uint8ClampedArray(gaussian_blur(bytes));
-        const newImgData = new ImageData(
-            context.viewerRawBytes,
-            context.hiddenCanvas.width,
-            context.hiddenCanvas.height);
-        createImageBitmap(newImgData).then((result) => {
-            draw(context, result);
-        });
+    // If the image is not already edited, use the hidden canvas' content
+    const bytes = context.viewerImageData == null ?
+        context.hiddenRawBytes :
+        context.viewerImageData.data;
+    console.debug(bytes);
+    // TODO: On first go we pass PNG binary, but on  the second we pass 
+    // the raw color data. Maybe handle them seperately?
+    const w = context.hiddenCanvas.width;
+    const h = context.hiddenCanvas.height;
+    context.viewerImageData = new ImageData(
+        new Uint8ClampedArray(gaussian_blur(w, h, bytes)), w, h);
+    createImageBitmap(context.viewerImageData).then((result) => {
+        draw(context, result);
     });
 }
 
-function resetCanvas(context) {
-    draw(context, context.hiddenCanvas);
-    context.viewerRawBytes = null;
-}
 
 window.onload = () => {
     let context = {
-        finput:         document.querySelector("#finput"),
-        viewerCanvas:   document.querySelector("#viewerCanvas"),
-        hiddenCanvas:   document.querySelector("#hiddenCanvas"),
-        imgin:          document.querySelector("#source"),
-        btnBlur:        document.querySelector("#btnBlur"),
-        btnReset:       document.querySelector("#btnReset"),
-        hiddenRawBytes: null,
-        viewerRawBytes: null
+        finput:          document.querySelector("#finput"),
+        viewerCanvas:    document.querySelector("#viewerCanvas"),
+        hiddenCanvas:    document.querySelector("#hiddenCanvas"),
+        imgin:           document.querySelector("#source"),
+        btnBlur:         document.querySelector("#btnBlur"),
+        btnReset:        document.querySelector("#btnReset"),
+        hiddenRawBytes:  null,
+        viewerImageData: null
     };
 
     context.finput.addEventListener("change", () => {
@@ -142,10 +140,17 @@ window.onload = () => {
         wasmBlur(context);
     });
     context.btnReset.addEventListener("click", () => {
-        resetCanvas(context);
+        draw(context, context.hiddenCanvas);
+        context.viewerImageData = null;
     });
     window.addEventListener("resize", () => {
-        draw(context, context.imgin);
+        if (context.viewerImageData === null) {
+            draw(context, context.imgin);
+        } else {
+            createImageBitmap(context.viewerImageData).then((result) => {
+                draw(context, result);
+            });
+        }
     });
 };
 

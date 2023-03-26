@@ -3,25 +3,33 @@ extern crate console_error_panic_hook;
 
 
 use wasm_bindgen::prelude::*;
-use image::GenericImageView;
+use image::imageops::blur;
+use image::ImageFormat::Png;
+use image::{ ImageBuffer, Rgba };
+use image::load_from_memory_with_format;
 
 
 #[wasm_bindgen]
-pub fn gaussian_blur(raw_img: &[u8]) -> Result<Vec<u8>, String> {
-    console_error_panic_hook::set_once();
-    let reader = image::load_from_memory(raw_img);
+pub fn decode_png(raw_img: &[u8]) -> Result<Vec<u8>, String> {
+    match load_from_memory_with_format(raw_img, Png) {
+        Ok(img) => Ok(img.into_bytes()),
+        Err(e) => Err(format!("Error loading image data from memory: {}", e))
+    }
+}
 
-    match reader {
-        Ok(img) => {
-            let blurred = img.blur(2.0);
-            web_sys::console::log_1(
-                &format!("Color format: {:?}", blurred.color()).into());
-            web_sys::console::log_1(
-                &format!("Resolution: {:?}", blurred.dimensions()).into());
-            Ok(blurred.into_bytes())
+
+#[wasm_bindgen]
+pub fn gaussian_blur(width: u32, height: u32, raw_img: Vec<u8>) 
+    -> Result<Vec<u8>, String> {
+    console_error_panic_hook::set_once();
+    match image::ImageBuffer::from_vec(width, height, raw_img) {
+        Some(img) => {
+            let blurred: ImageBuffer<Rgba<u8>, Vec<u8>> =
+                blur(&img, 2.0);
+            //web_sys::console::log_1(
+            //    &format!("Resolution: {:?}", blurred.dimensions()).into());
+            Ok(blurred.into_vec())
         },
-        Err(e) => {
-            Err(format!("Error loading image data from memory: {}", e))
-        }
+        None => Err(format!("Error converting color data to image!")) 
     }
 }

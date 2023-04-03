@@ -96,14 +96,15 @@ export function decode_png(raw_img) {
 * @param {number} width
 * @param {number} height
 * @param {Uint8Array} raw_img
+* @param {number} sigma
 * @returns {Uint8Array}
 */
-export function gaussian_blur(width, height, raw_img) {
+export function gaussian_blur(width, height, raw_img, sigma) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         const ptr0 = passArray8ToWasm0(raw_img, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        wasm.gaussian_blur(retptr, width, height, ptr0, len0);
+        wasm.gaussian_blur(retptr, width, height, ptr0, len0, sigma);
         var r0 = getInt32Memory0()[retptr / 4 + 0];
         var r1 = getInt32Memory0()[retptr / 4 + 1];
         var r2 = getInt32Memory0()[retptr / 4 + 2];

@@ -2,6 +2,7 @@
 <html lang="en-US">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="icon" type="image/png" href="favicon-32x32.png">
         <link rel="stylesheet" href="style.css">
         <script src="wasm.js" type="module"></script>
@@ -9,12 +10,20 @@
     <body>
         <img src="" alt="Placeholder" id="source" hidden>
         <canvas id="hiddenCanvas" hidden></canvas>
+        <div id="view">
+            <div id="control">
+                <input type="file" id="finput" accept="image/png">
+                <button id="btnReset">Reset</button>
 
-        <input type="file" id="finput" accept="image/png">
-        <br>
-        <button id="btnBlur">Blur</button>
-        <button id="btnReset">Reset</button>
-        <br>
-        <canvas id="viewerCanvas"></canvas>
+                <div>
+                    <input type="range" min="0" max="19" value="3" id="sigma">
+                    <button id="btnBlur">Blur</button>
+                    <label id="sigmaView" for="sigma">Sigma: 1.00</label><br>
+                </div>
+                <div>
+                </div>
+            </div>
+            <canvas id="viewerCanvas"></canvas>
+        </div>
     </body>
 </html>

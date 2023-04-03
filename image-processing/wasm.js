@@ -64,8 +64,6 @@ function handleFile(context) {
         console.debug(`Image is ${img.naturalWidth}x${img.naturalHeight}`);
         context.hiddenCanvas.width  = img.naturalWidth;
         context.hiddenCanvas.height = img.naturalHeight;
-        context.viewerCanvas.width  = img.naturalWidth;
-        context.viewerCanvas.height = img.naturalHeight;
         context.viewerImageData = null;
         // Draw the contents to the hidden canvas to extract the image data.
         context.hiddenCanvas.getContext("2d").drawImage(img, 0, 0);
@@ -75,49 +73,48 @@ function handleFile(context) {
         const noHeader = dataURL.replace(/^data:image\/png;base64,/, "");
         const rawBytes = base64DecToArr(noHeader);
         init().then(() => {
-            const decoded = decode_png(rawBytes);
-            console.debug(decoded);
-            context.hiddenRawBytes = decoded;
+            context.hiddenRawBytes = decode_png(rawBytes);
         });
         draw(context, img);
     };
 }
 
 function draw(context, imageData) {
-    const window_w = window.innerWidth;
-    const window_h = window.innerHeight;
-    const image_w = context.imgin.naturalWidth;
-    const image_h = context.imgin.naturalHeight;
-    let can = context.viewerCanvas;
+    const can = context.viewerCanvas;
+    const windowW = can.clientWidth;
+    const windowH = can.clientHeight;
+    const imageW = context.imgin.naturalWidth;
+    const imageH = context.imgin.naturalHeight;
 
-    // Derived from source:
-    // https://stackoverflow.com/questions/68621712/canvas-fill-viewport-and-keep-image-ratio
-    can.width = window_w;
-    can.height = window_h;
-    const factor = image_h / image_w * can.width > window_h ?
-        can.height / image_h :
-        can.width / image_w;
-    const offset_w = image_w * factor;
-    const offset_h = image_h * factor;
-    can.getContext("2d").drawImage(imageData, 0, 0, offset_w, offset_h);
-    // End of sourced code
+    can.width = windowW;
+    can.height = windowH;
+    const factor = windowW > windowH ? 
+        windowH / imageH :
+        windowW / imageW;
+    const canvasImgW = imageW * factor;
+    const canvasImgH = imageH * factor;
+    const horizontalOffset = windowW > canvasImgW ?
+        (windowW - canvasImgW) / 2 :
+        0;
+    can.getContext("2d").drawImage(
+        imageData, horizontalOffset, 0, canvasImgW, canvasImgH);
 }
 
 function wasmBlur(context) {
-    // If the image is not already edited, use the hidden canvas' content
-    const bytes = context.viewerImageData == null ?
-        context.hiddenRawBytes :
-        context.viewerImageData.data;
-    console.debug(bytes);
-    // TODO: On first go we pass PNG binary, but on  the second we pass 
-    // the raw color data. Maybe handle them seperately?
-    const w = context.hiddenCanvas.width;
-    const h = context.hiddenCanvas.height;
-    context.viewerImageData = new ImageData(
-        new Uint8ClampedArray(gaussian_blur(w, h, bytes)), w, h);
-    createImageBitmap(context.viewerImageData).then((result) => {
-        draw(context, result);
-    });
+    if (context.hiddenRawBytes !== null) {
+        // If the image is not already edited, use the hidden canvas' content
+        const bytes = context.viewerImageData === null ?
+            context.hiddenRawBytes :
+            context.viewerImageData.data;
+        const w = context.hiddenCanvas.width;
+        const h = context.hiddenCanvas.height;
+        const sigma = context.sigma.value / 4 + 1;
+        context.viewerImageData = new ImageData(
+            new Uint8ClampedArray(gaussian_blur(w, h, bytes, sigma)), w, h);
+        createImageBitmap(context.viewerImageData).then((result) => {
+            draw(context, result);
+        });
+    }
 }
 
 
@@ -129,6 +126,7 @@ window.onload = () => {
         imgin:           document.querySelector("#source"),
         btnBlur:         document.querySelector("#btnBlur"),
         btnReset:        document.querySelector("#btnReset"),
+        sigma:           document.querySelector("#sigma"),
         hiddenRawBytes:  null,
         viewerImageData: null
     };
@@ -142,6 +140,10 @@ window.onload = () => {
     context.btnReset.addEventListener("click", () => {
         draw(context, context.hiddenCanvas);
         context.viewerImageData = null;
+    });
+    context.sigma.addEventListener("input", () => {
+        document.querySelector("#sigmaView").innerHTML = 
+            "Sigma: " + (context.sigma.value / 4 + 1).toPrecision(3);
     });
     window.addEventListener("resize", () => {
         if (context.viewerImageData === null) {
